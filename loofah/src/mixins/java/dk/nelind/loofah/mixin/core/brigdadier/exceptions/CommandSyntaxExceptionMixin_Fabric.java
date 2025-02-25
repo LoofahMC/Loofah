@@ -32,6 +32,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.common.adventure.SpongeAdventure;
 
+/** Copied from {@link org.spongepowered.vanilla.mixin.core.brigadier.exceptions.CommandSyntaxExceptionMixin_Vanilla} */
 @Mixin(CommandSyntaxException.class)
 public abstract class CommandSyntaxExceptionMixin_Fabric implements ComponentMessageThrowable {
     @Shadow public abstract Message getRawMessage();

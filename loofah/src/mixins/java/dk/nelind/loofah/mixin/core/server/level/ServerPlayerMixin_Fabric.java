@@ -35,9 +35,10 @@ import org.spongepowered.common.event.tracking.context.transaction.EffectTransac
 import org.spongepowered.common.event.tracking.context.transaction.TransactionalCaptureSupplier;
 import org.spongepowered.common.event.tracking.context.transaction.inventory.PlayerInventoryTransaction;
 
+/** Copied from {@link org.spongepowered.vanilla.mixin.core.server.level.ServerPlayerMixin_Vanilla} */
 @Mixin(net.minecraft.server.level.ServerPlayer.class)
 public abstract class ServerPlayerMixin_Fabric extends LivingEntityMixin_Fabric implements ServerPlayerBridge {
-    // override from LivingEntityMixin_Vanilla
+    // override from LivingEntityMixin_Fabric
     @Override
     protected void fabric$onElytraUse(final CallbackInfo ci) {
         final PhaseContext<@NonNull ?> context = PhaseTracker.SERVER.getPhaseContext();
