@@ -63,10 +63,12 @@ import org.spongepowered.common.SpongeCommon;
 import org.spongepowered.common.accessor.server.MinecraftServerAccessor;
 import org.spongepowered.common.accessor.world.level.LevelSettingsAccessor;
 import org.spongepowered.common.bridge.ResourceKeyBridge;
+import org.spongepowered.common.bridge.data.DataCompoundHolder;
 import org.spongepowered.common.bridge.world.level.dimension.LevelStemBridge;
 import org.spongepowered.common.bridge.world.level.storage.PrimaryLevelDataBridge;
 import org.spongepowered.common.config.inheritable.InheritableConfigHandle;
 import org.spongepowered.common.config.inheritable.WorldConfig;
+import org.spongepowered.common.data.DataUtil;
 import org.spongepowered.common.data.fixer.LegacyUUIDCodec;
 import org.spongepowered.common.util.Constants;
 import org.spongepowered.common.util.MapUtil;
@@ -80,7 +82,7 @@ import java.util.StringJoiner;
 import java.util.UUID;
 
 @Mixin(PrimaryLevelData.class)
-public abstract class PrimaryLevelDataMixin implements WorldData, PrimaryLevelDataBridge, ResourceKeyBridge {
+public abstract class PrimaryLevelDataMixin implements WorldData, PrimaryLevelDataBridge, ResourceKeyBridge, DataCompoundHolder {
 
     // @formatter:off
     @Shadow private LevelSettings settings;
@@ -105,6 +107,7 @@ public abstract class PrimaryLevelDataMixin implements WorldData, PrimaryLevelDa
     private boolean impl$customDifficulty = false, impl$customGameType = false, impl$customSpawnPosition = false, impl$loadOnStartup, impl$performsSpawnLogic;
 
     private BiMap<Integer, UUID> impl$mapUUIDIndex = HashBiMap.create();
+    private @Nullable CompoundTag impl$compound;
 
     @Override
     public boolean bridge$isVanilla() {
@@ -362,21 +365,27 @@ public abstract class PrimaryLevelDataMixin implements WorldData, PrimaryLevelDa
     @Override
     @SuppressWarnings("deprecated")
     public void bridge$readSpongeLevelData(final Dynamic<Tag> dynamic) {
-        dynamic.get(Constants.Sponge.World.UNIQUE_ID).read(UUIDUtil.CODEC).result().ifPresent(value -> this.impl$uniqueId = value);
+        dynamic.get(Constants.Sponge.Data.V2.SPONGE_DATA).get().ifSuccess(v2 -> {
+            v2.get(Constants.Sponge.World.UNIQUE_ID).read(UUIDUtil.CODEC).result().ifPresent(value -> this.impl$uniqueId = value);
 
-        dynamic.get(Constants.Map.MAP_UUID_INDEX).readMap(Codec.STRING, UUIDUtil.CODEC).result().ifPresent(value -> {
-            final BiMap<Integer, UUID> mapIndex = HashBiMap.create();
-            for (final Pair<String, UUID> pair : value) {
-                final int id = Integer.parseInt(pair.getFirst());
-                mapIndex.put(id, pair.getSecond());
-            }
-            this.impl$mapUUIDIndex = mapIndex;
+            v2.get(Constants.Map.MAP_UUID_INDEX).readMap(Codec.STRING, UUIDUtil.CODEC).result().ifPresent(value -> {
+                final BiMap<Integer, UUID> mapIndex = HashBiMap.create();
+                for (final Pair<String, UUID> pair : value) {
+                    final int id = Integer.parseInt(pair.getFirst());
+                    mapIndex.put(id, pair.getSecond());
+                }
+                this.impl$mapUUIDIndex = mapIndex;
+            });
+
+            // TODO Move this to Schema
+            v2.get(Constants.Sponge.LEGACY_SPONGE_PLAYER_UUID_TABLE).readList(LegacyUUIDCodec.CODEC).result().orElseGet(() ->
+                v2.get(Constants.Sponge.SPONGE_PLAYER_UUID_TABLE).readList(UUIDUtil.CODEC).result().orElse(Collections.emptyList())
+            ).forEach(uuid -> this.impl$playerUniqueIdMap.inverse().putIfAbsent(uuid, this.impl$playerUniqueIdMap.size()));
         });
 
-        // TODO Move this to Schema
-        dynamic.get(Constants.Sponge.LEGACY_SPONGE_PLAYER_UUID_TABLE).readList(LegacyUUIDCodec.CODEC).result().orElseGet(() ->
-            dynamic.get(Constants.Sponge.SPONGE_PLAYER_UUID_TABLE).readList(UUIDUtil.CODEC).result().orElse(Collections.emptyList())
-        ).forEach(uuid -> this.impl$playerUniqueIdMap.inverse().putIfAbsent(uuid, this.impl$playerUniqueIdMap.size()));
+        this.data$setCompound((CompoundTag) dynamic.getValue());
+        DataUtil.syncTagToData(this);
+        this.data$setCompound(null);
     }
 
     @Override
@@ -422,5 +431,15 @@ public abstract class PrimaryLevelDataMixin implements WorldData, PrimaryLevelDa
         if (this.impl$dimensionType.hasCeiling()) {
             cir.setReturnValue(false);
         }
+    }
+
+    @Override
+    public CompoundTag data$getCompound() {
+        return this.impl$compound;
+    }
+
+    @Override
+    public void data$setCompound(final CompoundTag nbt) {
+        this.impl$compound = nbt;
     }
 }

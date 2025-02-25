@@ -103,9 +103,11 @@ import org.spongepowered.common.command.registrar.BrigadierBasedRegistrar;
 import org.spongepowered.common.entity.player.tab.SpongeTabList;
 import org.spongepowered.common.event.ShouldFire;
 import org.spongepowered.common.event.SpongeCommonEventFactory;
+import org.spongepowered.common.event.tracking.PhaseContext;
 import org.spongepowered.common.event.tracking.PhaseTracker;
 import org.spongepowered.common.event.tracking.phase.packet.BasicPacketContext;
 import org.spongepowered.common.event.tracking.phase.packet.PacketPhase;
+import org.spongepowered.common.event.tracking.phase.player.PlayerPhase;
 import org.spongepowered.common.item.util.ItemStackUtil;
 import org.spongepowered.common.network.channel.SpongeChannelPayload;
 import org.spongepowered.common.profile.SpongeGameProfile;
@@ -139,14 +141,16 @@ public abstract class ServerGamePacketListenerImplMixin extends ServerCommonPack
     @Shadow protected abstract ParseResults<CommandSourceStack> shadow$parseCommand(final String $$0);
     // @formatter:on
 
+    private final SpongeTabList impl$tabList = new SpongeTabList((ServerGamePacketListenerImpl) (Object) this);
+
     private int impl$ignorePackets;
 
     @Override
     public @Nullable Packet<?> impl$modifyClientBoundPacket(final Packet<?> packet) {
         if (packet instanceof final ClientboundPlayerInfoUpdatePacket infoPacket) {
-            return ((SpongeTabList) ((ServerPlayer) this.player).tabList()).updateEntriesOnSend(infoPacket);
+            return this.impl$tabList.updateEntriesOnSend(infoPacket);
         } else if (packet instanceof final ClientboundPlayerInfoRemovePacket removePacket) {
-            return ((SpongeTabList) ((ServerPlayer) this.player).tabList()).updateEntriesOnSend(removePacket);
+            return this.impl$tabList.updateEntriesOnSend(removePacket);
         }
         return super.impl$modifyClientBoundPacket(packet);
     }
@@ -229,7 +233,7 @@ public abstract class ServerGamePacketListenerImplMixin extends ServerCommonPack
         // common checks and throws are done here.
         final @Nullable Vector3d toPosition;
         if (fireMoveEvent) {
-            try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+            try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
                 frame.addContext(EventContextKeys.MOVEMENT_TYPE, MovementTypes.NATURAL);
                 toPosition = SpongeCommonEventFactory.callMoveEvent(
                         player,
@@ -395,7 +399,7 @@ public abstract class ServerGamePacketListenerImplMixin extends ServerCommonPack
             final HandType handType = (HandType) (Object) hand;
             final ItemStack heldItem = this.player.getItemInHand(hand);
 
-            try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+            try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
                 frame.addContext(EventContextKeys.USED_ITEM, ItemStackUtil.snapshotOf(heldItem));
                 frame.addContext(EventContextKeys.USED_HAND, handType);
                 final AnimateHandEvent event =
@@ -430,9 +434,17 @@ public abstract class ServerGamePacketListenerImplMixin extends ServerCommonPack
                     return; // prevents Mismatch in destroy block pos warning
                 }
             }
-            playerInteractionManager.handleBlockBreakAction(pos, act, dir, maxBuildHeight, sequence);
-            if (act == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK) {
-                this.impl$ignorePackets++;
+            final PhaseTracker tracker = PhaseTracker.SERVER;
+            try (final CauseStackManager.StackFrame frame = tracker.pushCauseFrame();
+                 final PhaseContext<?> context = PlayerPhase.State.PLAYER_INTERACT.createPhaseContext(tracker)
+                    .creator(this.player.getUUID())
+                    .notifier(this.player.getUUID())) {
+                context.buildAndSwitch();
+                frame.pushCause(event);
+                playerInteractionManager.handleBlockBreakAction(pos, act, dir, maxBuildHeight, sequence);
+                if (act == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK) {
+                    this.impl$ignorePackets++;
+                }
             }
         }
     }
@@ -448,12 +460,12 @@ public abstract class ServerGamePacketListenerImplMixin extends ServerCommonPack
         }
         final ServerPlayer spongePlayer = (ServerPlayer) this.player;
 
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             frame.pushCause(this.player);
             final Component message = SpongeAdventure.asAdventure($$0);
             final Audience audience = Sponge.server().broadcastAudience();
             final ServerSideConnectionEvent.Leave event = SpongeEventFactory.createServerSideConnectionEventLeave(
-                    PhaseTracker.getCauseStackManager().currentCause(), audience, Optional.of(audience), message, message,
+                    PhaseTracker.getInstance().currentCause(), audience, Optional.of(audience), message, message,
                     spongePlayer.connection(), spongePlayer, SpongeGameProfile.of(this.player.getGameProfile()), false);
             SpongeCommon.post(event);
             if (!event.isMessageCancelled()) {
@@ -488,10 +500,10 @@ public abstract class ServerGamePacketListenerImplMixin extends ServerCommonPack
             newLines.add(Component.text(StringUtil.filterText(line.filtered())));
         }
 
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             frame.pushCause(this.player);
             final ListValue.Mutable<Component> newLinesValue = ListValue.mutableOf(Keys.SIGN_LINES, newLines);
-            final ChangeSignEvent event = SpongeEventFactory.createChangeSignEvent(PhaseTracker.getCauseStackManager().currentCause(),
+            final ChangeSignEvent event = SpongeEventFactory.createChangeSignEvent(PhaseTracker.getInstance().currentCause(),
                     originalLines, newLinesValue,
                     (Sign) sign,
                     isFrontText);
@@ -527,7 +539,7 @@ public abstract class ServerGamePacketListenerImplMixin extends ServerCommonPack
 
     @Redirect(method = "lambda$handleChatCommand$7", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;performUnsignedChatCommand(Ljava/lang/String;)V"))
     public void impl$onPerformChatCommand(final ServerGamePacketListenerImpl instance, final String $$0) {
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             frame.pushCause(this.player);
             frame.addContext(EventContextKeys.COMMAND, $$0);
             this.shadow$performUnsignedChatCommand($$0);
@@ -536,7 +548,7 @@ public abstract class ServerGamePacketListenerImplMixin extends ServerCommonPack
 
     @Redirect(method = "lambda$handleSignedChatCommand$8", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;performSignedChatCommand(Lnet/minecraft/network/protocol/game/ServerboundChatCommandSignedPacket;Lnet/minecraft/network/chat/LastSeenMessages;)V"))
     public void impl$onPerformSignedChatCommand(final ServerGamePacketListenerImpl instance, final ServerboundChatCommandSignedPacket $$0, final LastSeenMessages $$1) {
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             frame.pushCause(this.player);
             frame.addContext(EventContextKeys.COMMAND, $$0.command());
             this.shadow$performSignedChatCommand($$0, $$1);
@@ -550,5 +562,10 @@ public abstract class ServerGamePacketListenerImplMixin extends ServerCommonPack
 
             ci.cancel();
         }
+    }
+
+    @Override
+    public SpongeTabList bridge$tabList() {
+        return this.impl$tabList;
     }
 }

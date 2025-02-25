@@ -24,6 +24,8 @@
  */
 package org.spongepowered.common.mixin.core.world.entity;
 
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleOptions;
@@ -72,7 +74,6 @@ import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 import org.spongepowered.common.SpongeCommon;
 import org.spongepowered.common.bridge.data.VanishableBridge;
 import org.spongepowered.common.bridge.world.entity.LivingEntityBridge;
-import org.spongepowered.common.bridge.world.entity.player.PlayerBridge;
 import org.spongepowered.common.bridge.world.level.LevelBridge;
 import org.spongepowered.common.entity.living.human.HumanEntity;
 import org.spongepowered.common.event.ShouldFire;
@@ -94,7 +95,6 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
     // @formatter:off
     @Shadow protected int useItemRemaining;
     @Shadow protected boolean dead;
-    @Shadow protected int deathScore;
     @Shadow protected ItemStack useItem;
     @Shadow @Nullable private DamageSource lastDamageSource;
     @Shadow private long lastDamageStamp;
@@ -110,10 +110,6 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
     @Shadow public abstract Optional<BlockPos> shadow$getSleepingPos();
     @Shadow protected abstract void shadow$spawnItemParticles(ItemStack stack, int count);
     @Shadow public abstract ItemStack shadow$getItemInHand(InteractionHand hand);
-    @Shadow protected abstract void shadow$dropEquipment();
-    @Shadow protected abstract void shadow$dropAllDeathLoot(ServerLevel level, DamageSource damageSourceIn);
-    @Shadow @Nullable public abstract LivingEntity shadow$getKillCredit();
-    @Shadow protected abstract void shadow$createWitherRose(@Nullable LivingEntity p_226298_1_);
     @Shadow public abstract float shadow$getMaxHealth();
     @Shadow public abstract AttributeMap shadow$getAttributes();
     @Shadow public abstract void shadow$clearSleepingPos();
@@ -171,16 +167,13 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
         }
     }
 
-    @Redirect(method = "dropAllDeathLoot",
+    @WrapOperation(method = "dropAllDeathLoot",
             at = @At(value = "INVOKE",
                     target = "Lnet/minecraft/world/entity/LivingEntity;dropEquipment()V"
             )
     )
-    private void tracker$dropInventory(final LivingEntity thisEntity) {
-        if (thisEntity instanceof PlayerBridge && ((PlayerBridge) thisEntity).bridge$keepInventory()) {
-            return;
-        }
-        this.shadow$dropEquipment();
+    protected void impl$dropInventoryWrapForPlayerOverride(final LivingEntity instance, final Operation<Void> original) {
+        original.call(instance);
     }
 
     @Inject(method = "pushEntities", at = @At("HEAD"), cancellable = true)
@@ -212,7 +205,7 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
             return;
         }
 
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             frame.pushCause(this);
 
             // ENTITY_TELEPORT is our fallback context
@@ -309,12 +302,12 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
         }
 
         final UseItemStackEvent.Start event;
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             final ItemStackSnapshot snapshot = ItemStackUtil.snapshotOf(stack);
             final HandType handType = (HandType) (Object) hand;
             this.impl$addSelfToFrame(frame, snapshot, handType);
             final Ticks useDuration = SpongeTicks.ticksOrInfinite(stack.getUseDuration((LivingEntity) (Object) this));
-            event = SpongeEventFactory.createUseItemStackEventStart(PhaseTracker.getCauseStackManager().currentCause(),
+            event = SpongeEventFactory.createUseItemStackEventStart(PhaseTracker.getInstance().currentCause(),
                 useDuration, useDuration, snapshot);
         }
 
@@ -363,12 +356,12 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
         }
 
         final UseItemStackEvent.Tick event;
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             final ItemStackSnapshot snapshot = ItemStackUtil.snapshotOf(this.useItem);
             final HandType handType = (HandType) (Object) this.shadow$getUsedItemHand();
             this.impl$addSelfToFrame(frame, snapshot, handType);
             final Ticks useItemRemainingTicks = SpongeTicks.ticksOrInfinite(this.useItemRemaining);
-            event = SpongeEventFactory.createUseItemStackEventTick(PhaseTracker.getCauseStackManager().currentCause(),
+            event = SpongeEventFactory.createUseItemStackEventTick(PhaseTracker.getInstance().currentCause(),
                 useItemRemainingTicks, useItemRemainingTicks, snapshot);
             SpongeCommon.post(event);
         }
@@ -407,12 +400,12 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
 
 
         final UseItemStackEvent.Finish event;
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             final ItemStackSnapshot snapshot = ItemStackUtil.snapshotOf(this.useItem);
             final HandType handType = (HandType) (Object) this.shadow$getUsedItemHand();
             this.impl$addSelfToFrame(frame, snapshot, handType);
             final Ticks useItemRemainingTicks = SpongeTicks.ticksOrInfinite(this.useItemRemaining);
-            event = SpongeEventFactory.createUseItemStackEventFinish(PhaseTracker.getCauseStackManager().currentCause(),
+            event = SpongeEventFactory.createUseItemStackEventFinish(PhaseTracker.getInstance().currentCause(),
                     useItemRemainingTicks, useItemRemainingTicks, snapshot);
         }
         SpongeCommon.post(event);
@@ -447,12 +440,12 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
 
 
         final UseItemStackEvent.Replace event;
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             final ItemStackSnapshot snapshot = ItemStackUtil.snapshotOf(stack == null ? ItemStack.EMPTY : stack);
             final HandType handType = (HandType) (Object) hand;
             this.impl$addSelfToFrame(frame, activeItemStackSnapshot, handType);
             final Ticks useItemRemainingTicks = SpongeTicks.ticksOrInfinite(this.useItemRemaining);
-            event = SpongeEventFactory.createUseItemStackEventReplace(PhaseTracker.getCauseStackManager().currentCause(),
+            event = SpongeEventFactory.createUseItemStackEventReplace(PhaseTracker.getInstance().currentCause(),
                     useItemRemainingTicks, useItemRemainingTicks, activeItemStackSnapshot,
                 new Transaction<>(ItemStackUtil.snapshotOf(this.impl$activeItemStackCopy), snapshot));
         }
@@ -480,12 +473,12 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
             stack.releaseUsing(world, self, duration);
             return;
         }
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             final ItemStackSnapshot snapshot = ItemStackUtil.snapshotOf(stack);
             final HandType handType = (HandType) (Object) this.shadow$getUsedItemHand();
             this.impl$addSelfToFrame(frame, snapshot, handType);
             final Ticks ticksDuration = SpongeTicks.ticksOrInfinite(duration);
-            if (!SpongeCommon.post(SpongeEventFactory.createUseItemStackEventStop(PhaseTracker.getCauseStackManager().currentCause(),
+            if (!SpongeCommon.post(SpongeEventFactory.createUseItemStackEventStop(PhaseTracker.getInstance().currentCause(),
                 ticksDuration, ticksDuration, snapshot))) {
                 stack.releaseUsing(world, self, duration);
                 if (self instanceof ServerPlayer) {
@@ -508,10 +501,10 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
         // However, if a player stopped using an item early, impl$activeItemStackCopy will not be set
         final ItemStackSnapshot snapshot = ItemStackUtil.snapshotOf(this.impl$activeItemStackCopy != null ? this.impl$activeItemStackCopy : this.useItem);
 
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             this.impl$addSelfToFrame(frame, snapshot);
             final Ticks useItemRemainingTicks = SpongeTicks.ticksOrInfinite(this.useItemRemaining);
-            SpongeCommon.post(SpongeEventFactory.createUseItemStackEventReset(PhaseTracker.getCauseStackManager().currentCause(),
+            SpongeCommon.post(SpongeEventFactory.createUseItemStackEventReset(PhaseTracker.getInstance().currentCause(),
                     useItemRemainingTicks, useItemRemainingTicks, snapshot));
         }
         this.impl$activeItemStackCopy = null;
@@ -548,7 +541,7 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
             return;
         }
         final BlockSnapshot snapshot = ((ServerWorld) this.shadow$level()).createSnapshot(sleepingPos.get().getX(), sleepingPos.get().getY(), sleepingPos.get().getZ());
-        final Cause currentCause = Sponge.server().causeStackManager().currentCause();
+        final Cause currentCause = PhaseTracker.getInstance().currentCause();
         final ServerLocation loc = ServerLocation.of((ServerWorld) this.shadow$level(), VecHelper.toVector3d(this.shadow$position()));
         final Vector3d rot = ((Living) this).rotation();
         final SleepingEvent.Finish event = SpongeEventFactory.createSleepingEventFinish(currentCause, loc, loc, rot, rot, snapshot, (Living) this);

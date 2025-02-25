@@ -75,7 +75,7 @@ public abstract class AbstractFurnaceBlockEntityMixin extends BaseContainerBlock
     // Shrink Fuel
     @Redirect(method = "serverTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemStack;shrink(I)V"))
     private static void impl$throwFuelEventIfOrShrink(final ItemStack itemStack, final int quantity, final Level var0, final BlockPos var1, final BlockState var2, final AbstractFurnaceBlockEntity entity) {
-        final Cause cause = PhaseTracker.getCauseStackManager().currentCause();
+        final Cause cause = PhaseTracker.getInstance().currentCause();
 
         final ItemStackSnapshot fuel = ItemStackUtil.snapshotOf(itemStack);
         final ItemStackSnapshot shrinkedFuel = ItemStackUtil.snapshotOf(ItemStackUtil.cloneDefensive(itemStack, itemStack.getCount() - 1));
@@ -146,7 +146,7 @@ public abstract class AbstractFurnaceBlockEntityMixin extends BaseContainerBlock
     private void impl$callInteruptSmeltEvent() {
         if (this.cookingProgress > 0) {
             final ItemStackSnapshot fuel = ItemStackUtil.snapshotOf(this.items.get(1));
-            final Cause cause = PhaseTracker.getCauseStackManager().currentCause();
+            final Cause cause = PhaseTracker.getInstance().currentCause();
             final var recipe = this.bridge$getCurrentRecipe();
             final CookingEvent.Interrupt event = SpongeEventFactory.createCookingEventInterrupt(cause, (FurnaceBlockEntity) this, Optional.of(fuel),
                     recipe.map(r -> (CookingRecipe) r.value()), recipe.map(r -> (ResourceKey) (Object) r.id()));

@@ -24,6 +24,8 @@
  */
 package org.spongepowered.common.mixin.core.world.ticks;
 
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
@@ -35,14 +37,12 @@ import org.spongepowered.api.scheduler.ScheduledUpdate;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 import org.spongepowered.common.bridge.world.ticks.LevelChunkTicksBridge;
 import org.spongepowered.common.bridge.world.ticks.LevelTicksBridge;
 import org.spongepowered.common.bridge.world.ticks.TickNextTickDataBridge;
 
-import java.util.Queue;
 import java.util.function.BiConsumer;
 
 @Mixin(LevelTicks.class)
@@ -73,26 +73,14 @@ public abstract class LevelTicksMixin<T> implements LevelTicksBridge<T> {
      * cause an invariant. Since this means that the data can be cancelled
      * without removing from the set, we effectively need to just filter it here.
      * But the scheduled update will still end up being removed from the schedule
-     *
-     * @param queue The currentlyTicking queue to be ticked
-     * @param data The next tick data to tick
-     * @return False if the data was marked as cancelled
      */
     @SuppressWarnings({"unchecked", "ConstantConditions"})
-    @Redirect(
-        method = "scheduleForThisTick",
-        at = @At(
-            value = "INVOKE",
-            target = "Ljava/util/Queue;add(Ljava/lang/Object;)Z",
-            remap = false
-        )
-    )
-    private boolean impl$validateHasNextUncancelled(Queue<ScheduledTick<T>> queue, Object data) {
-        final ScheduledUpdate.State state = ((TickNextTickDataBridge<T>) data).bridge$internalState();
-        if (state == ScheduledUpdate.State.CANCELLED) {
-            return false;
+    @WrapMethod(method = "scheduleForThisTick")
+    private void impl$validateHasNextUncancelled(final ScheduledTick<T> $$0, final Operation<Void> original) {
+        final ScheduledUpdate.State state = ((TickNextTickDataBridge<T>) (Object) $$0).bridge$internalState();
+        if (state != ScheduledUpdate.State.CANCELLED) {
+            original.call($$0);
         }
-        return queue.add((ScheduledTick<T>) data);
     }
 
     @SuppressWarnings("unchecked")

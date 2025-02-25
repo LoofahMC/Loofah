@@ -55,6 +55,7 @@ import net.minecraft.world.level.dimension.end.EndDragonFight;
 import net.minecraft.world.level.entity.PersistentEntitySectionManager;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.storage.LevelData;
 import net.minecraft.world.level.storage.LevelStorageSource;
 import net.minecraft.world.level.storage.PrimaryLevelData;
 import net.minecraft.world.level.storage.ServerLevelData;
@@ -232,7 +233,7 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
         if (ShouldFire.EXPLOSION_EVENT_PRE) {
             final ExplosionEvent.Pre
                     event =
-                    SpongeEventFactory.createExplosionEventPre(PhaseTracker.getCauseStackManager().currentCause(),
+                    SpongeEventFactory.createExplosionEventPre(PhaseTracker.getInstance().currentCause(),
                             explosion, (org.spongepowered.api.world.server.ServerWorld) this);
             if (SpongeCommon.post(event)) {
                 return;
@@ -311,7 +312,11 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
         "enabledFeatures"
     }, at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;getWorldData()Lnet/minecraft/world/level/storage/WorldData;"))
     private WorldData impl$usePerWorldLevelData(final MinecraftServer server) {
-        return (WorldData) this.shadow$getLevelData();
+        final LevelData levelData = this.shadow$getLevelData();
+        if (levelData instanceof final WorldData worldData) {
+            return worldData;
+        }
+        return server.getWorldData();
     }
 
     @Redirect(method = "setDefaultSpawnPos", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerChunkCache;addRegionTicket(Lnet/minecraft/server/level/TicketType;Lnet/minecraft/world/level/ChunkPos;ILjava/lang/Object;)V"))
@@ -334,7 +339,7 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
 
         this.impl$isManualSave = false;
 
-        final Cause currentCause = Sponge.server().causeStackManager().currentCause();
+        final Cause currentCause = PhaseTracker.getInstance().currentCause();
 
         if (Sponge.eventManager().post(SpongeEventFactory.createSaveWorldEventPre(currentCause, ((ServerWorld) this)))) {
             return; // cancelled save
@@ -471,7 +476,7 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
         final boolean isRaining = this.shadow$isRaining();
         if (this.oRainLevel != this.rainLevel || this.oThunderLevel != this.thunderLevel || $$0 != isRaining) {
             Weather newWeather = ((ServerWorld) this).properties().weather();
-            final Cause currentCause = Sponge.server().causeStackManager().currentCause();
+            final Cause currentCause = PhaseTracker.getInstance().currentCause();
             final Transaction<Weather> weatherTransaction = new Transaction<>(this.impl$prevWeather, newWeather);
             final ChangeWeatherEvent event = SpongeEventFactory.createChangeWeatherEvent(currentCause, ((ServerWorld) this), weatherTransaction);
             if (Sponge.eventManager().post(event)) {
@@ -510,7 +515,7 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
     private boolean impl$onBeforeThunder(final ServerLevel serverLevel, final BlockPos param0) {
         final boolean rainingAt = serverLevel.isRainingAt(param0);
         if (rainingAt) {
-            final LightningEvent.Pre strike = SpongeEventFactory.createLightningEventPre(Sponge.server().causeStackManager().currentCause());
+            final LightningEvent.Pre strike = SpongeEventFactory.createLightningEventPre(PhaseTracker.getInstance().currentCause());
             if (Sponge.eventManager().post(strike)) {
                 return false;
             }
@@ -549,7 +554,7 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
     @Inject(method = "levelEvent", at = @At("HEAD"), cancellable = true)
     private void impl$throwBroadcastEvent(final Player player, final int eventID, final BlockPos pos, final int dataID, CallbackInfo ci) {
         if(eventID == Constants.WorldEvents.PLAY_RECORD_EVENT && ShouldFire.PLAY_SOUND_EVENT_FROM_JUKEBOX) {
-            try (final CauseStackManager.StackFrame frame = Sponge.server().causeStackManager().pushCauseFrame()) {
+            try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
                 final BlockEntity tileEntity = this.shadow$getBlockEntity(pos);
                 if(tileEntity instanceof JukeboxBlockEntity) {
                     final JukeboxBlockEntity jukebox = (JukeboxBlockEntity) tileEntity;

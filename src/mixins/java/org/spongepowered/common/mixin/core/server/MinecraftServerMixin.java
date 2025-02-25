@@ -197,7 +197,7 @@ public abstract class MinecraftServerMixin implements SpongeServer, MinecraftSer
     @Inject(method = "stopServer", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;saveAllChunks(ZZZ)Z"))
     private void impl$callUnloadWorldEvents(final CallbackInfo ci) {
         for(final ServerLevel level : this.shadow$getAllLevels()) {
-            final UnloadWorldEvent unloadWorldEvent = SpongeEventFactory.createUnloadWorldEvent(PhaseTracker.getCauseStackManager().currentCause(), (ServerWorld) level);
+            final UnloadWorldEvent unloadWorldEvent = SpongeEventFactory.createUnloadWorldEvent(PhaseTracker.getInstance().currentCause(), (ServerWorld) level);
             SpongeCommon.post(unloadWorldEvent);
         }
     }

@@ -101,7 +101,7 @@ public abstract class FireworkRocketEntityMixin extends ProjectileMixin implemen
             world.broadcastEntityEvent(self, state);
             return;
         }
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             // Fireworks don't typically explode like other explosives, but we'll
             // post an event regardless and if the radius is zero the explosion
             // won't be triggered (the default behavior).
@@ -118,7 +118,7 @@ public abstract class FireworkRocketEntityMixin extends ProjectileMixin implemen
     @Inject(method = "tick()V", at = @At("RETURN"))
     private void impl$postPrimeEvent(final CallbackInfo ci) {
         if (this.life == 1 && !this.shadow$level().isClientSide) {
-            try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+            try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
                 frame.pushCause(this);
                 frame.addContext(EventContextKeys.PROJECTILE_SOURCE, this.impl$getProjectileSource());
                 this.bridge$postPrime();

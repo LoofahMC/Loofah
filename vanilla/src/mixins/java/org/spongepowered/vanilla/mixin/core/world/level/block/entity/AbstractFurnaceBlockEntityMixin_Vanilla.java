@@ -88,7 +88,7 @@ public abstract class AbstractFurnaceBlockEntityMixin_Vanilla extends BaseContai
         final var entity = (AbstractFurnaceBlockEntityMixin_Vanilla) (Object) (entityIn);
         final ItemStackSnapshot fuel = ItemStackUtil.snapshotOf(slots.get(1));
 
-        final Cause cause = PhaseTracker.getCauseStackManager().currentCause();
+        final Cause cause = PhaseTracker.getInstance().currentCause();
         if (entity.cookingProgress == 0) { // Start
             final CookingEvent.Start event = SpongeEventFactory.createCookingEventStart(cause, (FurnaceBlockEntity) entityIn, Optional.of(fuel),
                 Optional.of((CookingRecipe) recipe.value()), Optional.of((ResourceKey) (Object) recipe.id()));
@@ -110,7 +110,7 @@ public abstract class AbstractFurnaceBlockEntityMixin_Vanilla extends BaseContai
         final int clampedCookTime = Mth.clamp(newCookTime, zero, totalCookTime);
         final var entity = (AbstractFurnaceBlockEntityMixin_Vanilla) (Object) entityIn;
         final ItemStackSnapshot fuel = ItemStackUtil.snapshotOf(entity.items.get(1));
-        final Cause cause = PhaseTracker.getCauseStackManager().currentCause();
+        final Cause cause = PhaseTracker.getInstance().currentCause();
         final var recipe = entity.bridge$getCurrentRecipe();
         final ItemStackSnapshot cooking = ItemStackUtil.snapshotOf(entity.items.get(0));
         final CookingEvent.Tick event = SpongeEventFactory.createCookingEventTick(cause, (FurnaceBlockEntity) entityIn, cooking, Optional.of(fuel),
@@ -129,7 +129,7 @@ public abstract class AbstractFurnaceBlockEntityMixin_Vanilla extends BaseContai
             from = @At(value = "FIELD", target = "Lnet/minecraft/world/level/block/Blocks;WET_SPONGE:Lnet/minecraft/world/level/block/Block;", opcode = Opcodes.GETSTATIC)
     ))
     private static void vanilla$captureBucketFill(final RegistryAccess registryAccess, final RecipeHolder<?> recipe, final NonNullList<ItemStack> slots, final int maxStackSize, final CallbackInfoReturnable<Boolean> cir) {
-        final Cause cause = PhaseTracker.getCauseStackManager().currentCause();
+        final Cause cause = PhaseTracker.getInstance().currentCause();
         final FurnaceBlockEntity entity = cause.first(FurnaceBlockEntity.class)
             .orElseThrow(() -> new IllegalStateException("Expected to have a FurnaceBlockEntity in the Cause"));
         ((AbstractFurnaceBlockEntityMixin_Vanilla) entity).vanilla$filledWaterBucket = true;
@@ -141,7 +141,7 @@ public abstract class AbstractFurnaceBlockEntityMixin_Vanilla extends BaseContai
         final ItemStack recipeResult = recipe.value().getResultItem(registryAccess);
         final ItemStack itemOut = slots.get(2);
 
-        final Cause cause = PhaseTracker.getCauseStackManager().currentCause();
+        final Cause cause = PhaseTracker.getInstance().currentCause();
         final FurnaceBlockEntity entity = cause.first(FurnaceBlockEntity.class)
                 .orElseThrow(() -> new IllegalStateException("Expected to have a FurnaceBlockEntity in the Cause"));
 

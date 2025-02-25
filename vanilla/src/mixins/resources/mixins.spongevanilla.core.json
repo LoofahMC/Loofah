@@ -27,6 +27,7 @@
         "server.level.ServerPlayerMixin_Vanilla",
         "server.network.ServerGamePacketListenerImplMixin_Vanilla",
         "server.packs.repository.PackRepositoryMixin_Vanilla",
+        "tags.TagLoaderMixin_Vanilla",
         "world.entity.EntityMixin_Vanilla",
         "world.entity.EntityTypeMixin_Vanilla",
         "world.entity.LivingEntityMixin_Attack_Impl",

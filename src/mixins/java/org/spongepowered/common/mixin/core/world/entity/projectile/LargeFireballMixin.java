@@ -78,7 +78,7 @@ public abstract class LargeFireballMixin extends AbstractHurtingProjectileMixin 
     public net.minecraft.world.level.Explosion bridge$throwExplosionEventAndExplode(net.minecraft.world.level.Level worldObj, @Nullable Entity nil,
             double x, double y, double z, float strength, boolean flaming, Level.ExplosionInteraction mode) {
         final boolean griefer = ((GrieferBridge) this).bridge$canGrief();
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             frame.pushCause(this);
             ((Projectile) this).get(Keys.SHOOTER).ifPresent(shooter -> frame.addContext(EventContextKeys.PROJECTILE_SOURCE, shooter));
             final Optional<net.minecraft.world.level.Explosion> ex = SpongeCommonEventFactory.detonateExplosive(this, Explosion.builder()

@@ -207,7 +207,7 @@ public final class PacketPhaseUtil {
             if (!packetPlayer.isAlive() && !((PacketBridge) packetIn).bridge$canProcessWhenDead()) {
                 return;
             }
-            try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+            try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
                 frame.pushCause(packetPlayer);
 
                 // Don't process movement capture logic if player hasn't moved

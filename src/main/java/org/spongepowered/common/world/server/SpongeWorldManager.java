@@ -709,7 +709,7 @@ public abstract class SpongeWorldManager implements WorldManager {
         final Optional<ResourceKey> worldTypeKey = this.worldTypeKey(world.dimensionType());
         SpongeCommon.logger().info("Unloading world '{}' ({})", registryKey.location(), worldTypeKey.map(ResourceKey::toString).orElse("inline"));
 
-        final UnloadWorldEvent unloadWorldEvent = SpongeEventFactory.createUnloadWorldEvent(PhaseTracker.getCauseStackManager().currentCause(), (ServerWorld) world);
+        final UnloadWorldEvent unloadWorldEvent = SpongeEventFactory.createUnloadWorldEvent(PhaseTracker.getInstance().currentCause(), (ServerWorld) world);
         SpongeCommon.post(unloadWorldEvent);
 
         final BlockPos spawnPoint = world.getSharedSpawnPos();
@@ -894,7 +894,7 @@ public abstract class SpongeWorldManager implements WorldManager {
 
         final boolean isInitialized = levelData.isInitialized();
 
-        final LoadWorldEvent loadWorldEvent = SpongeEventFactory.createLoadWorldEvent(PhaseTracker.getCauseStackManager().currentCause(), (ServerWorld) world, isInitialized);
+        final LoadWorldEvent loadWorldEvent = SpongeEventFactory.createLoadWorldEvent(PhaseTracker.getInstance().currentCause(), (ServerWorld) world, isInitialized);
         SpongeCommon.post(loadWorldEvent);
         PlatformHooks.INSTANCE.getWorldHooks().postLoadWorld(world);
 

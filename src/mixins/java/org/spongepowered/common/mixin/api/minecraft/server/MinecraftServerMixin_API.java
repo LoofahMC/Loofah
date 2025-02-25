@@ -437,7 +437,7 @@ public abstract class MinecraftServerMixin_API implements SpongeServer, SpongeRe
 
     @Override
     public CauseStackManager causeStackManager() {
-        return PhaseTracker.getCauseStackManager();
+        return PhaseTracker.getInstance().apiAccess();
     }
 
     @Override

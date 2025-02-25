@@ -210,7 +210,7 @@ public abstract class ExplosionMixin implements ExplosionBridge {
                     entities.add((org.spongepowered.api.entity.Entity) entity);
                 }
             }
-            final Cause cause = PhaseTracker.getCauseStackManager().currentCause();
+            final Cause cause = PhaseTracker.getInstance().currentCause();
             final ExplosionEvent.Detonate detonate = SpongeEventFactory.createExplosionEventDetonate(cause, blockPositions, entities,
                     (Explosion) this, (org.spongepowered.api.world.server.ServerWorld) this.level);
             SpongeCommon.post(detonate);

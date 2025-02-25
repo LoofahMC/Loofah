@@ -24,10 +24,22 @@
  */
 package org.spongepowered.common.entity;
 
+import net.minecraft.core.Registry;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobCategory;
 import org.spongepowered.common.entity.living.human.HumanEntity;
+import org.spongepowered.common.util.Constants;
 
 public class SpongeEntityTypes {
 
-    public static EntityType<HumanEntity> HUMAN;
+    public static final EntityType<HumanEntity> HUMAN = EntityType.Builder.of(HumanEntity::new, MobCategory.MISC)
+        .noSave()
+        .sized(0.6F, 1.8F)
+        .clientTrackingRange(Constants.Entity.Player.TRACKING_RANGE)
+        .updateInterval(2)
+        .build("sponge:human");
+
+    public static void register(Registry<EntityType<?>> registry) {
+        Registry.register(registry, HumanEntity.KEY, SpongeEntityTypes.HUMAN);
+    }
 }

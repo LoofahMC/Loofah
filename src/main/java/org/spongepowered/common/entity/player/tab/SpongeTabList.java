@@ -26,12 +26,12 @@ package org.spongepowered.common.entity.player.tab;
 
 
 import com.google.common.collect.Maps;
-import com.mojang.authlib.GameProfile;
 import net.kyori.adventure.text.Component;
 import net.minecraft.network.chat.RemoteChatSession;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundTabListPacket;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.level.GameType;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -58,18 +58,18 @@ import java.util.UUID;
 public final class SpongeTabList implements TabList {
 
     private static final net.minecraft.network.chat.Component EMPTY_COMPONENT = net.minecraft.network.chat.Component.literal(""); // TODO use empty?
-    private final net.minecraft.server.level.ServerPlayer player;
+    private final ServerGamePacketListenerImpl connection;
     private @Nullable Component header;
     private @Nullable Component footer;
     private final Map<UUID, TabListEntry> entries = Maps.newHashMap();
 
-    public SpongeTabList(final net.minecraft.server.level.ServerPlayer player) {
-        this.player = player;
+    public SpongeTabList(final ServerGamePacketListenerImpl connection) {
+        this.connection = connection;
     }
 
     @Override
     public ServerPlayer player() {
-        return (ServerPlayer) this.player;
+        return (ServerPlayer) this.connection.player;
     }
 
     @Override
@@ -118,7 +118,7 @@ public final class SpongeTabList implements TabList {
             this.header == null ? SpongeTabList.EMPTY_COMPONENT : SpongeAdventure.asVanilla(this.header),
             this.footer == null ? SpongeTabList.EMPTY_COMPONENT : SpongeAdventure.asVanilla(this.footer)
         );
-        this.player.connection.send(packet);
+        this.connection.send(packet);
     }
 
     @Override
@@ -136,39 +136,26 @@ public final class SpongeTabList implements TabList {
     public TabList addEntry(final TabListEntry entry) throws IllegalArgumentException {
         Objects.requireNonNull(entry, "builder");
         Preconditions.checkState(entry.list().equals(this), "the provided tab list entry was not created for this tab list");
+        Preconditions.checkArgument(this.entries.putIfAbsent(entry.profile().uniqueId(), entry) == null, "cannot add duplicate entry");
 
-        this.addEntry(entry, true);
+        this.sendUpdate(entry, EnumSet.allOf(ClientboundPlayerInfoUpdatePacket.Action.class));
 
         return this;
     }
 
     private void addEntry(final ClientboundPlayerInfoUpdatePacket.Entry entry) {
-        final GameProfile profile = entry.profile();
-        if (!this.entries.containsKey(profile.getId())) {
+        this.entries.computeIfAbsent(entry.profileId(), $ -> {
             final net.minecraft.network.chat.@Nullable Component displayName = entry.displayName();
-            this.addEntry(new SpongeTabListEntry(
-                    this,
-                    SpongeGameProfile.of(profile),
-                    displayName == null ? null : SpongeAdventure.asAdventure(displayName),
-                    entry.latency(),
-                    (GameMode) (Object) entry.gameMode(),
-                    entry.listed(),
-                    entry.chatSession() == null ? null : entry.chatSession().profilePublicKey()
-            ), false);
-        }
-    }
-
-    private void addEntry(final TabListEntry entry, final boolean exceptionOnDuplicate) {
-        final UUID uniqueId = entry.profile().uniqueId();
-
-        @Nullable final TabListEntry prev = this.entries.putIfAbsent(uniqueId, entry);
-        if (exceptionOnDuplicate && prev != null) {
-            throw new IllegalArgumentException("cannot add duplicate entry");
-        }
-
-        if (prev == null) {
-            this.sendUpdate(entry, EnumSet.allOf(ClientboundPlayerInfoUpdatePacket.Action.class));
-        }
+            return new SpongeTabListEntry(
+                this,
+                SpongeGameProfile.of(entry.profile()),
+                displayName == null ? null : SpongeAdventure.asAdventure(displayName),
+                entry.latency(),
+                (GameMode) (Object) entry.gameMode(),
+                entry.listed(),
+                entry.chatSession() == null ? null : entry.chatSession().profilePublicKey()
+            );
+        });
     }
 
     @Override
@@ -177,7 +164,7 @@ public final class SpongeTabList implements TabList {
 
         final TabListEntry entry = this.entries.remove(uniqueId);
         if (entry != null) {
-            this.player.connection.send(new ClientboundPlayerInfoRemovePacket(List.of(entry.profile().uniqueId())));
+            this.connection.send(new ClientboundPlayerInfoRemovePacket(List.of(entry.profile().uniqueId())));
             return Optional.of(entry);
         }
         return Optional.empty();
@@ -198,7 +185,7 @@ public final class SpongeTabList implements TabList {
         final ClientboundPlayerInfoUpdatePacket.Entry data = new ClientboundPlayerInfoUpdatePacket.Entry(entry.profile().uniqueId(), SpongeGameProfile.toMcProfile(entry.profile()),
             entry.listed(), entry.latency(), (GameType) (Object) entry.gameMode(), displayName, chatSessionData);
         ((ClientboundPlayerInfoUpdatePacketAccessor) packet).accessor$entries(List.of(data));
-        this.player.connection.send(packet);
+        this.connection.send(packet);
     }
 
     /**
@@ -283,7 +270,7 @@ public final class SpongeTabList implements TabList {
     @Override
     public String toString() {
         return new StringJoiner(", ", SpongeTabList.class.getSimpleName() + "[", "]")
-                .add("player=" + this.player)
+                .add("player=" + this.connection.player)
                 .add("header=" + this.header)
                 .add("footer=" + this.footer)
                 .add("entries=" + this.entries)

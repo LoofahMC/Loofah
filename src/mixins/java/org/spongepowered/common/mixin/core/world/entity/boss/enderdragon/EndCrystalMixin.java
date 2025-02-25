@@ -84,7 +84,7 @@ public abstract class EndCrystalMixin extends EntityMixin implements ExplosiveBr
     public net.minecraft.world.level.@Nullable Explosion bridge$throwExplosionEventAndExplode(final net.minecraft.world.level.Level world,
         @Nullable final Entity nil, final double x, final double y, final double z, final boolean smoking,
         @Nullable final DamageSource source) {
-        final CauseStackManager causeStackManager = PhaseTracker.getCauseStackManager();
+        final CauseStackManager causeStackManager = PhaseTracker.getInstance();
         try (final CauseStackManager.StackFrame frame = causeStackManager.pushCauseFrame()) {
             frame.pushCause(this);
             if (source != null) {

@@ -45,7 +45,7 @@ public abstract class SpreadPlayersCommandMixin_Vanilla {
     private static boolean vanilla$createCauseFrameForTeleport(
         final Entity instance, final ServerLevel level, final double x, final double y,
         final double z, final Set<RelativeMovement> relativeMovements, final float yRot, final float xRot) {
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             frame.addContext(EventContextKeys.MOVEMENT_TYPE, MovementTypes.COMMAND);
 
             return instance.teleportTo(level, x, y, z, relativeMovements, yRot, xRot);

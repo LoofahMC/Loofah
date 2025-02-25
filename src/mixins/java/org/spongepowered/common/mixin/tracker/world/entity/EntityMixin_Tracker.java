@@ -142,7 +142,7 @@ public abstract class EntityMixin_Tracker implements DelegatingConfigTrackableBr
                 && this.levelCallback != EntityInLevelCallback.NULL) {
 
             if (!((Entity) (Object) this instanceof LivingEntity)) {
-                final Cause cause = PhaseTracker.getCauseStackManager().currentCause();
+                final Cause cause = PhaseTracker.getInstance().currentCause();
                 final Audience originalChannel = Audience.empty();
                 SpongeCommon.post(SpongeEventFactory.createDestructEntityEvent(
                     cause,

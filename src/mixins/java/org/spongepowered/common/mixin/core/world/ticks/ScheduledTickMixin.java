@@ -27,38 +27,43 @@ package org.spongepowered.common.mixin.core.world.ticks;
 
 import net.kyori.adventure.util.Ticks;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.ticks.LevelTicks;
+import net.minecraft.world.ticks.LevelChunkTicks;
 import net.minecraft.world.ticks.ScheduledTick;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.spongepowered.api.scheduler.ScheduledUpdate;
 import org.spongepowered.api.world.server.ServerLocation;
 import org.spongepowered.api.world.server.ServerWorld;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.common.bridge.world.ticks.LevelTicksBridge;
+import org.spongepowered.common.accessor.world.ticks.LevelChunkTicksAccessor;
+import org.spongepowered.common.bridge.CreatorTrackedBridge;
+import org.spongepowered.common.bridge.data.DataCompoundHolder;
 import org.spongepowered.common.bridge.world.ticks.TickNextTickDataBridge;
+import org.spongepowered.common.data.holder.SpongeMutableDataHolder;
 import org.spongepowered.common.util.Preconditions;
 
 import java.time.Duration;
 
 @Mixin(ScheduledTick.class)
-public abstract class ScheduledTickMixin<T> implements TickNextTickDataBridge<T> {
+public abstract class ScheduledTickMixin<T> implements TickNextTickDataBridge<T>, SpongeMutableDataHolder, DataCompoundHolder, CreatorTrackedBridge {
 
     @Shadow @Final private BlockPos pos;
     @Shadow @Final private long triggerTick;
 
     @MonotonicNonNull private ServerLocation impl$location;
-    @MonotonicNonNull private LevelTicks<T> impl$parentTickList;
+    @MonotonicNonNull private LevelChunkTicks<T> impl$parentLevelChunkTicks;
     private long impl$scheduledTime;
     private ScheduledUpdate.State impl$state = ScheduledUpdate.State.WAITING;
 
-    @SuppressWarnings("unchecked")
+    private @Nullable CompoundTag impl$compound;
+
     @Override
-    public void bridge$createdByList(final LevelTicks<T> tickList) {
-        final ServerLevel level = ((LevelTicksBridge<T>) tickList).bridge$level();
-        this.impl$parentTickList = tickList;
+    public void bridge$createdByList(final ServerLevel level, final LevelChunkTicks<T> levelChunkTicks) {
+        this.impl$parentLevelChunkTicks = levelChunkTicks;
         this.impl$scheduledTime = level.getLevelData().getGameTime();
         this.impl$location = ServerLocation.of((ServerWorld) level, this.pos.getX(), this.pos.getY(), this.pos.getZ());
     }
@@ -71,7 +76,7 @@ public abstract class ScheduledTickMixin<T> implements TickNextTickDataBridge<T>
 
     @Override
     public ScheduledUpdate.State bridge$internalState() {
-        if (this.impl$parentTickList == null) {
+        if (this.impl$parentLevelChunkTicks == null) {
             return ScheduledUpdate.State.CANCELLED;
         }
         return this.impl$state;
@@ -84,12 +89,14 @@ public abstract class ScheduledTickMixin<T> implements TickNextTickDataBridge<T>
 
     @Override
     public boolean bridge$cancelForcibly() {
-        if (this.impl$parentTickList == null) {
+        if (this.impl$parentLevelChunkTicks == null) {
             return false;
         }
         if (this.impl$state == ScheduledUpdate.State.FINISHED) {
             return false;
         }
+        // While we don't try to clean up more thoroughly, the ticks per position has side effects.
+        ((LevelChunkTicksAccessor) this.impl$parentLevelChunkTicks).accessor$ticksPerPosition().remove(this);
         this.impl$state = ScheduledUpdate.State.CANCELLED;
         return true;
     }
@@ -99,5 +106,13 @@ public abstract class ScheduledTickMixin<T> implements TickNextTickDataBridge<T>
         return Ticks.duration(this.triggerTick - this.impl$scheduledTime);
     }
 
+    @Override
+    public CompoundTag data$getCompound() {
+        return this.impl$compound;
+    }
 
+    @Override
+    public void data$setCompound(final CompoundTag nbt) {
+        this.impl$compound = nbt;
+    }
 }

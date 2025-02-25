@@ -81,7 +81,7 @@ public abstract class TeleportCommandMixin {
         }
 
         if (worldIn == entityIn.level()) {
-            try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+            try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
                 frame.addContext(EventContextKeys.MOVEMENT_TYPE, MovementTypes.COMMAND);
 
                 // TODO Should honor the relative list before the event..
@@ -133,11 +133,11 @@ public abstract class TeleportCommandMixin {
                 // To ensure mod code is caught, handling the world change for players happens in teleport
                 // Teleport will create a frame but we want to ensure it'll be the command movement type
                 // TODO check if this is still correct
-                PhaseTracker.getCauseStackManager().addContext(EventContextKeys.MOVEMENT_TYPE, MovementTypes.COMMAND);
+                PhaseTracker.getInstance().addContext(EventContextKeys.MOVEMENT_TYPE, MovementTypes.COMMAND);
                 ((ServerPlayer) entityIn).teleportTo(worldIn, x, y, z, yaw, pitch);
-                PhaseTracker.getCauseStackManager().removeContext(EventContextKeys.MOVEMENT_TYPE);
+                PhaseTracker.getInstance().removeContext(EventContextKeys.MOVEMENT_TYPE);
             } else {
-                try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+                try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
                     frame.addContext(EventContextKeys.MOVEMENT_TYPE, MovementTypes.COMMAND);
 
                     final ServerLevel fromWorld = (ServerLevel) entityIn.getCommandSenderWorld();
@@ -188,7 +188,7 @@ public abstract class TeleportCommandMixin {
                     entityIn.setRemoved(Entity.RemovalReason.CHANGED_DIMENSION);
 
                     Sponge.eventManager().post(SpongeEventFactory.createChangeEntityWorldEventPost(
-                            PhaseTracker.getCauseStackManager().currentCause(),
+                            PhaseTracker.getInstance().currentCause(),
                             (org.spongepowered.api.entity.Entity) result,
                             (ServerWorld) fromWorld,
                             preEvent.originalDestinationWorld(),

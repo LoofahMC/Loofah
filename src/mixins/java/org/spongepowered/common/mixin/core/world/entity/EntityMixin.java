@@ -25,6 +25,8 @@
 package org.spongepowered.common.mixin.core.world.entity;
 
 import com.google.common.collect.ImmutableList;
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -165,8 +167,6 @@ public abstract class EntityMixin implements EntityBridge, PlatformEntityBridge,
     @Shadow @Nullable public abstract Entity shadow$getVehicle();
     @Shadow public abstract AABB shadow$getBoundingBox();
     @Shadow @Nullable public abstract PlayerTeam shadow$getTeam();
-    @Shadow public abstract void shadow$clearFire();
-    @Shadow protected abstract void shadow$setSharedFlag(int flag, boolean set);
     @Shadow public abstract SynchedEntityData shadow$getEntityData();
     @Shadow public abstract net.minecraft.world.phys.Vec3 shadow$getDeltaMovement();
     @Shadow public abstract void shadow$setDeltaMovement(net.minecraft.world.phys.Vec3 motion);
@@ -176,7 +176,6 @@ public abstract class EntityMixin implements EntityBridge, PlatformEntityBridge,
     @Shadow public abstract float shadow$getYRot();
     @Shadow public abstract float shadow$getXRot();
     @Shadow public abstract void shadow$setYRot(final float param0);
-    @Shadow protected abstract Vec3 shadow$collide(Vec3 param0);
     @Shadow public abstract boolean shadow$fireImmune();
     @Shadow public abstract boolean shadow$onGround();
     @Shadow @Nullable protected abstract String shadow$getEncodeId();
@@ -227,7 +226,7 @@ public abstract class EntityMixin implements EntityBridge, PlatformEntityBridge,
             return false;
         }
 
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             frame.addContext(EventContextKeys.MOVEMENT_TYPE, MovementTypes.PLUGIN);
 
             final ServerLevel originalWorld = (ServerLevel) this.shadow$level();
@@ -262,7 +261,7 @@ public abstract class EntityMixin implements EntityBridge, PlatformEntityBridge,
 
             if (isChangeOfWorld) {
                 Sponge.eventManager().post(SpongeEventFactory.createChangeEntityWorldEventPost(
-                        PhaseTracker.getCauseStackManager().currentCause(),
+                        PhaseTracker.getInstance().currentCause(),
                         (org.spongepowered.api.entity.Entity) this,
                         (ServerWorld) originalWorld,
                         (ServerWorld) originalDestinationWorld,
@@ -306,7 +305,7 @@ public abstract class EntityMixin implements EntityBridge, PlatformEntityBridge,
     @Override
     public boolean bridge$dismountRidingEntity(final DismountType type) {
         if (!this.shadow$level().isClientSide && ShouldFire.RIDE_ENTITY_EVENT_DISMOUNT) {
-            try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+            try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
                 frame.pushCause(this);
                 frame.addContext(EventContextKeys.DISMOUNT_TYPE, type);
                 if (SpongeCommon.post(SpongeEventFactory.
@@ -427,7 +426,7 @@ public abstract class EntityMixin implements EntityBridge, PlatformEntityBridge,
             return;
         }
 
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()){
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()){
             var be = this.shadow$level().getBlockEntity(this.portalProcess.getEntryPosition());
             if (be != null) {
                 frame.pushCause(be);
@@ -459,7 +458,7 @@ public abstract class EntityMixin implements EntityBridge, PlatformEntityBridge,
     @Redirect(method = "handlePortal",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;changeDimension(Lnet/minecraft/world/level/portal/DimensionTransition;)Lnet/minecraft/world/entity/Entity;"))
     public Entity impl$onChangeDimension(final Entity instance, final DimensionTransition transition) {
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             frame.pushCause(this);
             var be = this.shadow$level().getBlockEntity(this.portalProcess.getEntryPosition());
             if (be != null) {
@@ -542,7 +541,7 @@ public abstract class EntityMixin implements EntityBridge, PlatformEntityBridge,
 
         this.impl$moveEventsFired = true;
         final ChangeEntityWorldEvent.Reposition reposition = SpongeEventFactory.createChangeEntityWorldEventReposition(
-                PhaseTracker.getCauseStackManager().currentCause(),
+                PhaseTracker.getInstance().currentCause(),
                 (org.spongepowered.api.entity.Entity) this,
                 (ServerWorld) this.shadow$level(),
                 VecHelper.toVector3d(this.position),
@@ -607,11 +606,11 @@ public abstract class EntityMixin implements EntityBridge, PlatformEntityBridge,
     private void impl$onStartRiding(final Entity vehicle, final boolean force,
         final CallbackInfoReturnable<Boolean> ci) {
         if (!this.shadow$level().isClientSide && ShouldFire.RIDE_ENTITY_EVENT_MOUNT) {
-            PhaseTracker.getCauseStackManager().pushCause(this);
-            if (SpongeCommon.post(SpongeEventFactory.createRideEntityEventMount(PhaseTracker.getCauseStackManager().currentCause(), (org.spongepowered.api.entity.Entity) vehicle))) {
+            PhaseTracker.getInstance().pushCause(this);
+            if (SpongeCommon.post(SpongeEventFactory.createRideEntityEventMount(PhaseTracker.getInstance().currentCause(), (org.spongepowered.api.entity.Entity) vehicle))) {
                 ci.cancel();
             }
-            PhaseTracker.getCauseStackManager().popCause();
+            PhaseTracker.getInstance().popCause();
         }
     }
 
@@ -663,9 +662,8 @@ public abstract class EntityMixin implements EntityBridge, PlatformEntityBridge,
         return entity.hurt(source, damage);
     }
 
-    @Redirect(method = "move", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;collide(Lnet/minecraft/world/phys/Vec3;)Lnet/minecraft/world/phys/Vec3;"))
-    private Vec3 impl$onMoveCollide(final Entity entity, final Vec3 originalMove) {
-        final Vec3 afterCollide = this.shadow$collide(originalMove);
+    @ModifyExpressionValue(method = "move", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;collide(Lnet/minecraft/world/phys/Vec3;)Lnet/minecraft/world/phys/Vec3;"))
+    private Vec3 impl$onMoveCollide(final Vec3 afterCollide, @Local(argsOnly = true) final Vec3 originalMove) {
         if (ShouldFire.COLLIDE_BLOCK_EVENT_MOVE && !originalMove.equals(afterCollide)) {
             // We had a collision! Try to find the colliding block
             final Vec3 position = new Vec3(this.shadow$getX() + afterCollide.x, this.shadow$getY() + afterCollide.y, this.shadow$getZ() + afterCollide.z);
@@ -676,7 +674,7 @@ public abstract class EntityMixin implements EntityBridge, PlatformEntityBridge,
             for (final VoxelShape shape : this.shadow$level().getBlockCollisions((Entity) (Object) this, boundingBox)) {
                 final Optional<Vec3> shapeClosestPoint = shape.closestPointTo(position);
                 if (shapeClosestPoint.isPresent()) {
-                    if (!closestPoint.isPresent()) {
+                    if (closestPoint.isEmpty()) {
                         closestPoint = shapeClosestPoint;
                     } else if (position.distanceToSqr(closestPoint.get()) > position.distanceToSqr(shapeClosestPoint.get())) {
                         closestPoint = shapeClosestPoint;
@@ -837,7 +835,7 @@ public abstract class EntityMixin implements EntityBridge, PlatformEntityBridge,
         original.add(snapshot);
 
         // We want to frame ourselves here, because of the two events we have to throw, first for the drop item event, then the constructentityevent.
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             // Perform the event throws first, if they return false, return null
             item = SpongeCommonEventFactory.throwDropItemAndConstructEvent(
                 (Entity) (Object) this, posX, posY, posZ, snapshot, original, frame);
@@ -870,7 +868,7 @@ public abstract class EntityMixin implements EntityBridge, PlatformEntityBridge,
             this.remainingFireTicks < 1 && ticks >= Constants.Entity.MINIMUM_FIRE_TICKS &&
             this.impl$canCallIgniteEntityEvent()) {
 
-            try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+            try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
 
                 frame.pushCause(((org.spongepowered.api.entity.Entity) this).location().world());
                 final IgniteEntityEvent event = SpongeEventFactory.
@@ -978,7 +976,7 @@ public abstract class EntityMixin implements EntityBridge, PlatformEntityBridge,
     }
 
     protected void impl$callExpireEntityEvent() {
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             frame.pushCause(this);
             Sponge.eventManager().post(SpongeEventFactory.createExpireEntityEvent(frame.currentCause(), (org.spongepowered.api.entity.Entity) this));
         }

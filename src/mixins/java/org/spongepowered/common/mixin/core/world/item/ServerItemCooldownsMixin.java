@@ -59,7 +59,7 @@ public abstract class ServerItemCooldownsMixin extends ItemCooldownsMixin {
             return 0;
         }
         final Optional<Ticks> beforeCooldown = ((CooldownTracker) this).cooldown(type);
-        final CooldownEvent.Set event = SpongeEventFactory.createCooldownEventSet(PhaseTracker.getCauseStackManager().currentCause(),
+        final CooldownEvent.Set event = SpongeEventFactory.createCooldownEventSet(PhaseTracker.getInstance().currentCause(),
                 SpongeTicks.ticksOrInfinite(ticks), SpongeTicks.ticksOrInfinite(ticks), type, (ServerPlayer) this.player, beforeCooldown);
 
         if (Sponge.eventManager().post(event)) {
@@ -72,7 +72,7 @@ public abstract class ServerItemCooldownsMixin extends ItemCooldownsMixin {
 
     @Override
     protected void impl$throwEndCooldownEvent(final ItemType type) {
-        final CooldownEvent.End event = SpongeEventFactory.createCooldownEventEnd(PhaseTracker.getCauseStackManager().currentCause(),
+        final CooldownEvent.End event = SpongeEventFactory.createCooldownEventEnd(PhaseTracker.getInstance().currentCause(),
                 type, (ServerPlayer) this.player);
         Sponge.eventManager().post(event);
     }

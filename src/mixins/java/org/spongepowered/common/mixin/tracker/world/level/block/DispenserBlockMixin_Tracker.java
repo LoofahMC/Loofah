@@ -108,7 +108,7 @@ public abstract class DispenserBlockMixin_Tracker {
         final ItemStackSnapshot snapshot = ItemStackUtil.snapshotOf(dispensedItem);
         final List<ItemStackSnapshot> original = new ArrayList<>();
         original.add(snapshot);
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             frame.pushCause(dispenserTileEntity);
             final DropItemEvent.Pre dropEvent = SpongeEventFactory.createDropItemEventPre(frame.currentCause(), ImmutableList.of(snapshot), original);
             SpongeCommon.post(dropEvent);

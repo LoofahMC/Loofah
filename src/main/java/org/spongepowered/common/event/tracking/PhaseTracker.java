@@ -55,6 +55,7 @@ import org.spongepowered.common.applaunch.config.common.PhaseTrackerCategory;
 import org.spongepowered.common.applaunch.config.core.SpongeConfigs;
 import org.spongepowered.common.event.cause.entity.SpongeSpawnTypes;
 import org.spongepowered.common.event.tracking.phase.general.GeneralPhase;
+import org.spongepowered.common.event.tracking.phase.plugin.PluginPhase;
 import org.spongepowered.common.event.tracking.phase.tick.TickPhase;
 import org.spongepowered.common.launch.Launch;
 import org.spongepowered.common.util.Constants;
@@ -116,10 +117,6 @@ public final class PhaseTracker implements CauseStackManager {
                 throw new RuntimeException("Unable to create a new PhaseTracker for Thread: " + thread, e);
             }
         });
-    }
-
-    public static CauseStackManager getCauseStackManager() {
-        return PhaseTracker.getInstance();
     }
 
     public static Block validateBlockForNeighborNotification(final ServerLevel worldServer, final BlockPos pos, @Nullable Block blockIn,
@@ -222,7 +219,7 @@ public final class PhaseTracker implements CauseStackManager {
      */
     private final Deque<PhaseContext<?>> phaseContextProviders = new ArrayDeque<>();
     final PhaseStack stack = new PhaseStack();
-
+    private final SpongeCauseStackManager api = new SpongeCauseStackManager();
 
     PhaseTracker() {
         for (int i = 0; i < PhaseTracker.INITIAL_POOL_SIZE; i++) {
@@ -568,6 +565,10 @@ public final class PhaseTracker implements CauseStackManager {
 
     @Override
     public StackFrame pushCauseFrame() {
+        return this.pushCauseFrame0(false);
+    }
+
+    private StackFrame pushCauseFrame0(final boolean requiresImplicitPhase) {
         this.enforceMainThread();
         // Ensure duplicate causes will be correctly sized.
         final int size = this.cause.size();
@@ -596,6 +597,9 @@ public final class PhaseTracker implements CauseStackManager {
             // were created.
             frame.stackDebug = new Exception();
         }
+        if (requiresImplicitPhase) {
+            frame.implicitContext = PluginPhase.State.PLUGIN.createPhaseContext(this).buildAndSwitch();
+        }
         return frame;
     }
 
@@ -603,7 +607,25 @@ public final class PhaseTracker implements CauseStackManager {
     public void popCauseFrame(final StackFrame oldFrame) {
         Objects.requireNonNull(oldFrame, "oldFrame");
         this.enforceMainThread();
-        final @Nullable SpongeCauseStackFrame frame = this.frames.peek();
+        @Nullable SpongeCauseStackFrame frame = this.frames.peek();
+        if (frame != oldFrame) {
+            // If implicit context is present, we need to
+            // first close it as it might have pushed new frames.
+            // This is an implementation detail so the caller has
+            // no knowledge of this context, so it can't close it
+            // by itself and instead closes the outer frame.
+            if (((SpongeCauseStackFrame) oldFrame).implicitContext != null) {
+                ((SpongeCauseStackFrame) oldFrame).implicitContext.close();
+                ((SpongeCauseStackFrame) oldFrame).implicitContext = null;
+                frame = this.frames.peek();
+            }
+        } else if (frame.implicitContext != null) {
+            // See above, no frames to close here.
+            // Fast path to avoid casting.
+            frame.implicitContext.close();
+            frame.implicitContext = null;
+        }
+
         if (frame != oldFrame) {
             // If the given frame is not the top frame then some form of
             // corruption of the stack has occurred and we do our best to correct
@@ -801,5 +823,70 @@ public final class PhaseTracker implements CauseStackManager {
             this.pendingProviders.compareAndSet(true, false);
         }
 
+    }
+
+    public CauseStackManager apiAccess() {
+        return this.api;
+    }
+
+    /**
+     * We insert implicit phases for plugin created frames.
+     */
+    private final class SpongeCauseStackManager implements CauseStackManager {
+
+        @Override
+        public Cause currentCause() {
+            return PhaseTracker.this.currentCause();
+        }
+
+        @Override
+        public EventContext currentContext() {
+            return PhaseTracker.this.currentContext();
+        }
+
+        @Override
+        public CauseStackManager pushCause(final Object obj) {
+            return PhaseTracker.this.pushCause(obj);
+        }
+
+        @Override
+        public Object popCause() {
+            return PhaseTracker.this.popCause();
+        }
+
+        @Override
+        public void popCauses(final int n) {
+            PhaseTracker.this.popCauses(n);
+        }
+
+        @Override
+        public Object peekCause() {
+            return PhaseTracker.this.peekCause();
+        }
+
+        @Override
+        public StackFrame pushCauseFrame() {
+            return PhaseTracker.this.pushCauseFrame0(true);
+        }
+
+        @Override
+        public void popCauseFrame(final StackFrame handle) {
+            PhaseTracker.this.popCauseFrame(handle);
+        }
+
+        @Override
+        public <T> CauseStackManager addContext(final EventContextKey<T> key, final T value) {
+            return PhaseTracker.this.addContext(key, value);
+        }
+
+        @Override
+        public <T> Optional<T> context(final EventContextKey<T> key) {
+            return PhaseTracker.this.context(key);
+        }
+
+        @Override
+        public <T> Optional<T> removeContext(final EventContextKey<T> key) {
+            return PhaseTracker.this.removeContext(key);
+        }
     }
 }

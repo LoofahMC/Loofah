@@ -53,6 +53,7 @@
     "server.rcon.thread.RconClientAccessor",
     "sounds.SoundEventAccessor",
     "stats.StatsCounterAccessor",
+    "tags.TagEntryAccessor",
     "util.datafix.schemas.V100Accessor",
     "util.thread.ProcessorMailboxAccessor",
     "world.CompoundContainerAccessor",
@@ -210,7 +211,8 @@
     "world.level.storage.PlayerDataStorageAccessor",
     "world.phys.AABBAccessor",
     "world.scores.PlayerTeamAccessor",
-    "world.scores.ScoreboardAccessor"
+    "world.scores.ScoreboardAccessor",
+    "world.ticks.LevelChunkTicksAccessor"
   ],
   "server": [
     "server.dedicated.DedicatedServerAccessor"

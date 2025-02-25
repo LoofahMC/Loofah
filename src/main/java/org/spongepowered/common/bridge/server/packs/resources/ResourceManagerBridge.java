@@ -22,24 +22,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.spongepowered.common.mixin.tracker.world.ticks;
+package org.spongepowered.common.bridge.server.packs.resources;
 
-import net.minecraft.world.ticks.ScheduledTick;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.common.bridge.world.ticks.ScheduledTickBridge;
+import org.spongepowered.common.tag.SpongePluginTags;
 
-@Mixin(ScheduledTick.class)
-public abstract class ScheduledTickMixin_Tracker implements ScheduledTickBridge {
+public interface ResourceManagerBridge {
 
-    private boolean tracker$isWorldGen = false;
+    void bridge$pluginProvidedTags(SpongePluginTags pluginTags);
 
-    @Override
-    public boolean bridge$isPartOfWorldGeneration() {
-        return this.tracker$isWorldGen;
-    }
-
-    @Override
-    public void bridge$setIsPartOfWorldGeneration(final boolean isLoading) {
-        this.tracker$isWorldGen = isLoading;
-    }
+    SpongePluginTags bridge$pluginProvidedTags();
 }

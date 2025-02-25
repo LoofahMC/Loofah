@@ -125,7 +125,7 @@ public abstract class SpongeEngineConnection implements EngineConnection {
     private void fireDisconnectEvent() {
         this.eventFireState.set(EventFireState.DISCONNECTED);
         final ServerSideConnectionEvent.Disconnect event = SpongeEventFactory.createServerSideConnectionEventDisconnect(
-                PhaseTracker.getCauseStackManager().currentCause(), (ServerSideConnection) this, Optional.ofNullable(this.gameProfile).map(SpongeGameProfile::of));
+                PhaseTracker.getInstance().currentCause(), (ServerSideConnection) this, Optional.ofNullable(this.gameProfile).map(SpongeGameProfile::of));
         SpongeCommon.post(event);
     }
 

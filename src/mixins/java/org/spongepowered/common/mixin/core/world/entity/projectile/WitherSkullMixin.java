@@ -93,7 +93,7 @@ public abstract class WitherSkullMixin extends AbstractHurtingProjectileMixin im
             final net.minecraft.world.level.Level worldObj, final Entity self,
             final double x, final double y, final double z, final float strength, final boolean flaming, final Level.ExplosionInteraction mode) {
         final boolean griefer = ((GrieferBridge) this).bridge$canGrief();
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             frame.pushCause(this);
             ((Projectile) this).get(Keys.SHOOTER).ifPresent(shooter -> {
                 frame.addContext(EventContextKeys.PROJECTILE_SOURCE, shooter);

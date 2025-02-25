@@ -270,7 +270,7 @@ abstract class ContainerBasedTransaction extends MenuBasedTransaction<ClickConta
             }
 
             final CraftItemEvent.Craft craftEvent =
-                    SpongeEventFactory.createCraftItemEventCraft(PhaseTracker.getCauseStackManager().currentCause(),
+                    SpongeEventFactory.createCraftItemEventCraft(PhaseTracker.getInstance().currentCause(),
                             ContainerUtil.fromNative(this.menu), craftedItem, this.craftingInventory, event.cursorTransaction(),
                             Optional.ofNullable(this.onTakeRecipe).map(r -> (CraftingRecipe) r.value()),
                             Optional.ofNullable(this.onTakeRecipe).map(r -> (ResourceKey) (Object) r.id()),

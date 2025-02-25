@@ -138,7 +138,7 @@ public abstract class ItemEntityMixin extends EntityMixin implements ItemEntityB
     @Inject(method = "tryToMerge", cancellable = true,
             at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/item/ItemEntity;merge(Lnet/minecraft/world/entity/item/ItemEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/entity/item/ItemEntity;Lnet/minecraft/world/item/ItemStack;)V"))
     private void impl$merge(final ItemEntity param0, final CallbackInfo ci) {
-        final Cause currentCause = Sponge.server().causeStackManager().currentCause();
+        final Cause currentCause = PhaseTracker.getInstance().currentCause();
         if (Sponge.eventManager().post(SpongeEventFactory.createItemMergeWithItemEvent(currentCause, (Item) this, (Item) param0))) {
             ci.cancel();
         }

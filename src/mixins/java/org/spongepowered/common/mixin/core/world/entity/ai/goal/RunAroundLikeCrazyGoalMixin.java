@@ -56,7 +56,7 @@ public abstract class RunAroundLikeCrazyGoalMixin extends GoalMixin {
         cancellable = true
     )
     private void impl$throwTameEntityEvent(final CallbackInfo ci) {
-        try (CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             frame.pushCause(this.horse.getFirstPassenger());
             if (SpongeCommon.post(SpongeEventFactory.createTameEntityEvent(frame.currentCause(), (HorseLike) this.horse))) {
                 ci.cancel();

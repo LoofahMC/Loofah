@@ -29,7 +29,7 @@ import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.world.item.crafting.StonecutterRecipe;
+import net.minecraft.world.item.crafting.SingleItemRecipe;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -37,11 +37,11 @@ import org.spongepowered.common.item.recipe.stonecutting.SpongeStonecuttingRecip
 
 import java.util.function.Function;
 
-@Mixin(StonecutterRecipe.Serializer.class)
-public abstract class StonecutterRecipe_SerializerMixin {
+@Mixin(SingleItemRecipe.Serializer.class)
+public abstract class SingleItemRecipe_SerializerMixin {
 
     @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lcom/mojang/serialization/codecs/RecordCodecBuilder;mapCodec(Ljava/util/function/Function;)Lcom/mojang/serialization/MapCodec;"))
-    private MapCodec<StonecutterRecipe> impl$onCreateCodec(final Function<RecordCodecBuilder.Instance<StonecutterRecipe>, ? extends App<RecordCodecBuilder.Mu<StonecutterRecipe>, StonecutterRecipe>> builder) {
+    private MapCodec<SingleItemRecipe> impl$onCreateCodec(final Function<RecordCodecBuilder.Instance<SingleItemRecipe>, ? extends App<RecordCodecBuilder.Mu<SingleItemRecipe>, SingleItemRecipe>> builder) {
         final var mcMapCodec = RecordCodecBuilder.mapCodec(builder);
         return Codec.mapEither(SpongeStonecuttingRecipe.SPONGE_CODEC, mcMapCodec).xmap(to -> to.map(si -> si, i -> i),
                 fr -> {

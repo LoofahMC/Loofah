@@ -93,7 +93,7 @@ public abstract class AbstractFurnaceBlockEntityMixin_Forge implements AbstractF
 
         final ItemStackSnapshot fuel = ItemStackUtil.snapshotOf(slots.get(1));
 
-        final Cause cause = PhaseTracker.getCauseStackManager().currentCause();
+        final Cause cause = PhaseTracker.getInstance().currentCause();
         if (entity.cookingProgress == 0) { // Start
             final CookingEvent.Start event = SpongeEventFactory.createCookingEventStart(cause, (FurnaceBlockEntity) entityIn, Optional.of(fuel),
                 Optional.of((CookingRecipe) recipe.value()), Optional.of((ResourceKey) (Object) recipe.id()));
@@ -115,7 +115,7 @@ public abstract class AbstractFurnaceBlockEntityMixin_Forge implements AbstractF
         final int clampedCookTime = Mth.clamp(newCookTime, zero, totalCookTime);
         final var entity = (AbstractFurnaceBlockEntityMixin_Forge) (Object) entityIn;
         final ItemStackSnapshot fuel = ItemStackUtil.snapshotOf(entity.items.get(1));
-        final Cause cause = PhaseTracker.getCauseStackManager().currentCause();
+        final Cause cause = PhaseTracker.getInstance().currentCause();
         final var recipe = entity.bridge$getCurrentRecipe();
         final ItemStackSnapshot cooking = ItemStackUtil.snapshotOf(entity.items.get(0));
         final CookingEvent.Tick event = SpongeEventFactory.createCookingEventTick(cause, (FurnaceBlockEntity) entityIn, cooking, Optional.of(fuel),
@@ -170,7 +170,7 @@ public abstract class AbstractFurnaceBlockEntityMixin_Forge implements AbstractF
             transactions.add(new SlotTransaction(entity.inventory().slot(2).get(), originalResult, ItemStackUtil.snapshotOf(itemOut)));
         }
         final Optional<ItemStackSnapshot> fuel = hasFuel && !slots.get(1).isEmpty() ? Optional.of(ItemStackUtil.snapshotOf(slots.get(1))) : Optional.empty();
-        final CookingEvent.Finish event = SpongeEventFactory.createCookingEventFinish(PhaseTracker.getCauseStackManager().currentCause(), entity,
+        final CookingEvent.Finish event = SpongeEventFactory.createCookingEventFinish(PhaseTracker.getInstance().currentCause(), entity,
             fuel, Optional.of((CookingRecipe) recipe.value()), Optional.of((ResourceKey) (Object) recipe.id()), Collections.unmodifiableList(transactions));
         SpongeCommon.post(event);
 

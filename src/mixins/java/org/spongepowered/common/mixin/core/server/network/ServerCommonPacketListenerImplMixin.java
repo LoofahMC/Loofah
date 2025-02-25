@@ -146,7 +146,7 @@ public abstract class ServerCommonPacketListenerImplMixin implements ServerCommo
         }
 
         SpongeCommon.post(SpongeEventFactory.createResourcePackStatusEvent(
-                PhaseTracker.getCauseStackManager().currentCause(),
+                PhaseTracker.getInstance().currentCause(),
                 (ServerSideConnection) ((ConnectionBridge) this.connection).bridge$getEngineConnection(),
                 pack,
                 Optional.ofNullable((org.spongepowered.api.entity.living.player.server.ServerPlayer) player),

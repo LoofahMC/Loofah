@@ -222,7 +222,7 @@ public class SpongeInventoryMenu implements InventoryMenu {
     public void onClose(final Player player, final Container container) {
 
         if (this.closeHandler != null) {
-            try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+            try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
                 frame.pushCause(player);
                 final Cause cause = frame.currentCause();
                 this.closeHandler.handle(cause, container);
@@ -233,7 +233,7 @@ public class SpongeInventoryMenu implements InventoryMenu {
 
     public boolean onClick(
         final int slotId, final int dragType, final ClickType clickTypeIn, final Player player, final Container container) {
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             frame.pushCause(player);
             final Cause cause = frame.currentCause();
             if (clickTypeIn == ClickType.QUICK_CRAFT) {
@@ -371,7 +371,7 @@ public class SpongeInventoryMenu implements InventoryMenu {
     public boolean onChange(final ItemStack newStack, final ItemStack oldStack, final Container container, final int slotIndex, final Slot slot) {
 
         if (this.changeHandler != null) {
-            final Cause cause = PhaseTracker.getCauseStackManager().currentCause();
+            final Cause cause = PhaseTracker.getInstance().currentCause();
             return this.changeHandler.handle(cause, container, ((org.spongepowered.api.item.inventory.Slot) slot), slotIndex,
                     ItemStackUtil.snapshotOf(oldStack), ItemStackUtil.snapshotOf(newStack));
         }

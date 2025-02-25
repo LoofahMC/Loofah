@@ -93,7 +93,9 @@ public final class PluginFileParser {
     public static ModFile newPluginInstance(final IModLocator locator, final Path... path) {
         ModJarMetadata mjm = newModJarMetadata();
         ModFile modFile = (ModFile) ModFileFactory.FACTORY.build(SecureJar.from(jar -> mjm, path), locator, PluginFileParser::parsePluginMetadata);
-        mjm.setModFile(modFile);
+        if (modFile.getModFileInfo() != null) {
+            mjm.setModFile(modFile);
+        }
         return modFile;
     }
 

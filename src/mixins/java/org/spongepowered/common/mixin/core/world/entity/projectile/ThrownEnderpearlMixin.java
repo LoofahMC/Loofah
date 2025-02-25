@@ -54,7 +54,7 @@ public abstract class ThrownEnderpearlMixin extends ThrowableProjectileMixin {
     )
     private Entity impl$callMoveEntityEventForThrower(final Entity instance, final DimensionTransition $$0) {
         final Entity entity = this.shadow$getOwner();
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             frame.pushCause(entity);
             frame.addContext(EventContextKeys.MOVEMENT_TYPE, MovementTypes.ENDER_PEARL);
 
