@@ -94,6 +94,7 @@ public class FabricModPluginLanguageService implements PluginLanguageService {
     }
 
     private Set<PluginMetadata> parseFabricMetadata(JsonElement jsonRoot) {
+        var metadataSet = new HashSet<PluginMetadata>();
         // TODO(loofah): test if this is actually true after the class loading issues
         //  (see dk.nelind.loofah.applaunch.plugin.resource.FabricModPluginResourceLocatorService) where fixed
         // We manually parse out only the parts of the fabric.mod.json we need since the loaders parser is inaccessible
@@ -103,17 +104,25 @@ public class FabricModPluginLanguageService implements PluginLanguageService {
 
         // The loader doesn't currently support using an array as the root of a fabric.mod.json but we still parse it
         if (jsonRoot.isJsonArray()) {
-            var metadataSet = new HashSet<PluginMetadata>();
             for (JsonElement jsonElement : jsonRoot.getAsJsonArray()) {
-                metadataSet.add(this.parseFabricMetadata(jsonElement.getAsJsonObject()));
+                this.parseFabricMetadata(jsonElement.getAsJsonObject()).ifPresent(metadataSet::add);
             }
-            return metadataSet;
+        } else {
+            this.parseFabricMetadata(jsonRoot.getAsJsonObject()).ifPresent(metadataSet::add);
         }
 
-        return Set.of(this.parseFabricMetadata(jsonRoot.getAsJsonObject()));
+        return metadataSet;
     }
 
-    private PluginMetadata parseFabricMetadata(JsonObject rootObject) {
+    private Optional<PluginMetadata> parseFabricMetadata(JsonObject rootObject) {
+        JsonElement customValues = rootObject.get("custom");
+        if (customValues != null) {
+            for (var entry : customValues.getAsJsonObject().entrySet()) {
+                if (entry.getKey().equals("fabric-loom:generated"))
+                    return Optional.empty();
+            }
+        }
+
         var builder = StandardPluginMetadata.builder();
 
         // We only check for the schema version here because the loader technically allows for mods that either
@@ -220,7 +229,7 @@ public class FabricModPluginLanguageService implements PluginLanguageService {
 
         builder.dependencies(dependencies);
 
-        return builder.build();
+        return Optional.of(builder.build());
     }
 
     private StandardPluginLinks parseFabricModLinks(JsonObject contactInfoObject) {
