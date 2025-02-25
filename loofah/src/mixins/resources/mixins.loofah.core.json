@@ -10,6 +10,7 @@
     "client.server.IntegratedServerMixin_Fabric"
   ],
   "mixins": [
+    "CrashReportMixin_Fabric",
     "brigdadier.exceptions.CommandSyntaxExceptionMixin_Fabric",
     "commands.CommandsMixin_Fabric",
     "fabricmc.fabric.impl.networking.server.ServerLoginNetworkAddonMixin",
