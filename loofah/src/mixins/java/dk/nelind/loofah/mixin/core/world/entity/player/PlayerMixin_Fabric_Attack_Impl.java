@@ -25,10 +25,10 @@
 package dk.nelind.loofah.mixin.core.world.entity.player;
 
 import net.minecraft.world.entity.player.Player;
-import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.Constant;
+import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.Slice;
 import org.spongepowered.common.util.DamageEventUtil;
 
@@ -40,9 +40,9 @@ public class PlayerMixin_Fabric_Attack_Impl {
     /**
      * Captures the crit multiplier as a function
      */
-    @ModifyVariable(
+    @ModifyConstant(
         method = "attack",
-        ordinal = 2,
+        constant = @Constant(floatValue = 1.5F),
         slice = @Slice(
             from = @At(
                 value = "INVOKE",
@@ -53,21 +53,12 @@ public class PlayerMixin_Fabric_Attack_Impl {
                 value = "FIELD",
                 target = "Lnet/minecraft/world/entity/player/Player;walkDist:F"
             )
-        ),
-        at = @At(
-            value = "JUMP",
-            opcode = Opcodes.IFEQ
         )
     )
-    public boolean attackImpl$critHook(final boolean isCritical) {
+    public float attackImpl$critHook(final float constant) {
         // if (isCritical) damage *= 1.5F;
-        if (isCritical) {
-            final var bonusDamageFunc = DamageEventUtil.provideCriticalAttackFunction(
-                this.attackImpl$attack.sourceEntity(),
-                1.5
-            );
-            this.attackImpl$attack.functions().add(bonusDamageFunc);
-        }
-        return isCritical;
+        final var bonusDamageFunc = DamageEventUtil.provideCriticalAttackFunction(this.attackImpl$attack.sourceEntity(), constant);
+        this.attackImpl$attack.functions().add(bonusDamageFunc);
+        return constant;
     }
 }
