@@ -58,7 +58,7 @@ public abstract class SpreadPlayersCommandMixin_Fabric {
         final float yRot,
         final float xRot
     ) {
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getCauseStackManager().pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
             frame.addContext(EventContextKeys.MOVEMENT_TYPE, MovementTypes.COMMAND);
 
             return instance.teleportTo(level, x, y, z, relativeMovements, yRot, xRot);

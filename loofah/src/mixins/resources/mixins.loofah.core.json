@@ -23,6 +23,7 @@
     "server.network.ServerGamePacketListenerImplMixin_Fabric",
     "server.packs.repository.PackRepositoryMixin_Fabric",
     "spongepowered.common.util.ConstantsMixin",
+    "tags.TagLoaderMixin_Fabric",
     "world.entity.EntityMixin_Fabric",
     "world.entity.EntityTypeMixin_Fabric",
     "world.entity.LivingEntityMixin_Attack_Impl",

@@ -24,32 +24,19 @@
  */
 package dk.nelind.loofah.mixin.core.world.entity;
 
-import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.MobCategory;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.common.entity.SpongeEntityTypes;
-import org.spongepowered.common.entity.living.human.HumanEntity;
-import org.spongepowered.common.util.Constants;
 
 /** Copied from {@link org.spongepowered.vanilla.mixin.core.world.entity.EntityTypeMixin_Vanilla} */
 @Mixin(EntityType.class)
 public abstract class EntityTypeMixin_Fabric {
     @Inject(method = "<clinit>", at = @At("TAIL"))
-    private static void impl$createHumanType(CallbackInfo ci) {
-        SpongeEntityTypes.HUMAN = Registry.register(
-            BuiltInRegistries.ENTITY_TYPE,
-            HumanEntity.KEY,
-            EntityType.Builder.of(HumanEntity::new, MobCategory.MISC)
-                .noSave()
-                .sized(0.6F, 1.8F)
-                .clientTrackingRange(Constants.Entity.Player.TRACKING_RANGE)
-                .updateInterval(2)
-                .build("sponge:human")
-        );
+    private static void impl$registerSpongeTypes(CallbackInfo ci) {
+        SpongeEntityTypes.register(BuiltInRegistries.ENTITY_TYPE);
     }
 }

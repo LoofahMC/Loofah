@@ -54,7 +54,7 @@ public class HopperBlockEntityMixin_Inventory_Fabric {
             target = "Lnet/minecraft/world/level/block/entity/HopperBlockEntity;isFullContainer(Lnet/minecraft/world/Container;Lnet/minecraft/core/Direction;)Z"
         )
     )
-    private static boolean vanilla$throwTransferPreIfNotFull(
+    private static boolean fabric$throwTransferPreIfNotFull(
         final Container attachedContainer,
         final Direction direction,
         final Level level,
@@ -83,7 +83,7 @@ public class HopperBlockEntityMixin_Inventory_Fabric {
             ordinal = 1
         )
     )
-    private static void vanilla$afterPutStackInSlots(
+    private static void fabric$afterPutStackInSlots(
         final Level var0,
         final BlockPos var1,
         final HopperBlockEntity var3,
@@ -117,5 +117,8 @@ public class HopperBlockEntityMixin_Inventory_Fabric {
                 sourceSlotTransaction
             );
         }
+
+        InventoryUtil.updateInventoryNoEvents(var3);
+        InventoryUtil.updateInventoryNoEvents(iInventory);
     }
 }
