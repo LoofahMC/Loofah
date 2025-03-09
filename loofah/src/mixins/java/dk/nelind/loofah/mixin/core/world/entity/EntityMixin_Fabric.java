@@ -24,14 +24,40 @@
  */
 package dk.nelind.loofah.mixin.core.world.entity;
 
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageSources;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.common.bridge.world.entity.EntityBridge;
 
 /** Copied from {@link org.spongepowered.vanilla.mixin.core.world.entity.EntityMixin_Vanilla} */
 @Mixin(Entity.class)
 public abstract class EntityMixin_Fabric implements EntityBridge {
     @Shadow public abstract Level shadow$level();
+
+    @Redirect(
+        method = "thunderHit",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/world/damagesource/DamageSources;lightningBolt()Lnet/minecraft/world/damagesource/DamageSource;"
+        )
+    )
+    private DamageSource fabric$ThrowDamageEventWithLightingSource(
+        final DamageSources sources,
+        final ServerLevel level,
+        final LightningBolt lightningBolt
+    ) {
+        final var originalLightning = sources.lightningBolt();
+        final var entitySource = org.spongepowered.api.event.cause.entity.damage.source.DamageSource.builder()
+            .from((org.spongepowered.api.event.cause.entity.damage.source.DamageSource) originalLightning)
+            .entity((org.spongepowered.api.entity.Entity) lightningBolt)
+            .build();
+        return (DamageSource) entitySource;
+    }
 }

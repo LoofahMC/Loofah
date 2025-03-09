@@ -24,20 +24,20 @@
  */
 package dk.nelind.loofah.mixin.core.world.entity.vehicle;
 
-import net.minecraft.world.entity.vehicle.Boat;
+import net.minecraft.world.entity.vehicle.AbstractBoat;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.common.bridge.world.entity.vehicle.BoatBridge;
+import org.spongepowered.common.bridge.world.entity.vehicle.AbstractBoatBridge;
 
-/** Copied from {@link org.spongepowered.vanilla.mixin.core.world.entity.vehicle.BoatMixin_Vanilla} */
-@Mixin(Boat.class)
-public abstract class BoatMixin_Fabric implements BoatBridge {
+/** Copied from {@link org.spongepowered.vanilla.mixin.core.world.entity.vehicle.AbstractBoatMixin_Vanilla} */
+@Mixin(AbstractBoat.class)
+public abstract class AbstractBoatMixin_Fabric implements AbstractBoatBridge {
     /** Forge changes this check to ask the block state for "slipperiness" so we return the check here to Vanilla/Fabric */
     @Redirect(method = "getGroundFriction", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/Block;getFriction()F"))
-    private float vanilla$getBlockSlipperinessIfBoatIsNotOverridingMovingOnLand(Block block) {
+    private float fabric$getBlockSlipperinessIfBoatIsNotOverridingMovingOnLand(Block block) {
         return this.bridge$getMoveOnLand() ? Blocks.ICE.getFriction() : block.getFriction();
     }
 }

@@ -29,9 +29,11 @@
     "world.entity.LivingEntityMixin_Attack_Impl",
     "world.entity.LivingEntityMixin_Fabric",
     "world.entity.ai.attributes.DefaultAttributesMixin",
+    "world.entity.animal.SnowGolemMixin_Fabric",
     "world.entity.item.ItemEntityMixin_Fabric",
     "world.entity.player.PlayerMixin_Fabric_Attack_Impl",
-    "world.entity.vehicle.BoatMixin_Fabric",
+    "world.entity.vehicle.AbstractBoatMixin_Fabric",
+    "world.level.ServerExplosionMixin_Fabric",
     "world.level.block.FireBlockMixin_Fabric",
     "world.level.block.entity.AbstractFurnaceBlockEntityMixin_Fabric",
     "world.level.storage.LevelStorageSourceMixin_Vanilla"

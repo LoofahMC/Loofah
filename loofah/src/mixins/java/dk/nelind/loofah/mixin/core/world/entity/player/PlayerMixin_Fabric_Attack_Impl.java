@@ -50,8 +50,8 @@ public class PlayerMixin_Fabric_Attack_Impl {
                 ordinal = 1
             ),
             to = @At(
-                value = "FIELD",
-                target = "Lnet/minecraft/world/entity/player/Player;walkDist:F"
+                value = "INVOKE",
+                target = "Lnet/minecraft/world/entity/player/Player;getKnownMovement()Lnet/minecraft/world/phys/Vec3;"
             )
         )
     )

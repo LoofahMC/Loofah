@@ -25,8 +25,10 @@
 package dk.nelind.loofah.mixin.core.server.level;
 
 import dk.nelind.loofah.mixin.core.world.entity.LivingEntityMixin_Fabric;
+import net.minecraft.server.level.ServerLevel;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.common.bridge.server.level.ServerPlayerBridge;
 import org.spongepowered.common.event.tracking.PhaseContext;
@@ -38,10 +40,12 @@ import org.spongepowered.common.event.tracking.context.transaction.inventory.Pla
 /** Copied from {@link org.spongepowered.vanilla.mixin.core.server.level.ServerPlayerMixin_Vanilla} */
 @Mixin(net.minecraft.server.level.ServerPlayer.class)
 public abstract class ServerPlayerMixin_Fabric extends LivingEntityMixin_Fabric implements ServerPlayerBridge {
+    @Shadow public abstract ServerLevel shadow$serverLevel();
+
     // override from LivingEntityMixin_Fabric
     @Override
     protected void fabric$onElytraUse(final CallbackInfo ci) {
-        final PhaseContext<@NonNull ?> context = PhaseTracker.SERVER.getPhaseContext();
+        final PhaseContext<@NonNull ?> context = PhaseTracker.getWorldInstance(this.shadow$serverLevel()).getPhaseContext();
         final TransactionalCaptureSupplier transactor = context.getTransactor();
         final net.minecraft.server.level.ServerPlayer player = (net.minecraft.server.level.ServerPlayer) (Object) this;
         try (final EffectTransactor ignored = transactor.logPlayerInventoryChangeWithEffect(player, PlayerInventoryTransaction.EventCreator.STANDARD)) {

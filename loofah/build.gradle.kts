@@ -89,7 +89,14 @@ val fabricLaunch by sourceSets.register("launch") {
         extendsFrom(fabricLibrariesConfig)
     }
 }
+val fabricAccessors by sourceSets.register("accessors") {
+    spongeImpl.addDependencyToImplementation(accessors, this)
 
+    configurations.named(implementationConfigurationName) {
+        extendsFrom(gameManagedLibraries)
+        extendsFrom(fabricLibrariesConfig)
+    }
+}
 val fabricAppLaunch by sourceSets.register("applaunch") {
     // implementation (compile) dependencies
     spongeImpl.addDependencyToImplementation(launch, this)
@@ -113,6 +120,7 @@ val fabricMixins by sourceSets.register("mixins") {
     spongeImpl.addDependencyToImplementation(applaunch, this)
     spongeImpl.addDependencyToImplementation(fabricAppLaunch, this)
     spongeImpl.addDependencyToImplementation(fabricMain, this)
+    spongeImpl.addDependencyToImplementation(fabricAccessors, this)
 
     configurations.named(implementationConfigurationName) {
         extendsFrom(gameManagedLibraries)

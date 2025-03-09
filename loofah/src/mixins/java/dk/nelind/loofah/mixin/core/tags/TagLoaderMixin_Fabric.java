@@ -47,7 +47,7 @@ import java.util.function.Consumer;
 public abstract class TagLoaderMixin_Fabric<T> implements TagLoaderBridge<T> {
 
     @WrapOperation(
-        method = "build(Lnet/minecraft/tags/TagEntry$Lookup;Ljava/util/List;)Lcom/mojang/datafixers/util/Either;",
+        method = "tryBuildTag(Lnet/minecraft/tags/TagEntry$Lookup;Ljava/util/List;)Lcom/mojang/datafixers/util/Either;",
         at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/tags/TagEntry;build(Lnet/minecraft/tags/TagEntry$Lookup;Ljava/util/function/Consumer;)Z"

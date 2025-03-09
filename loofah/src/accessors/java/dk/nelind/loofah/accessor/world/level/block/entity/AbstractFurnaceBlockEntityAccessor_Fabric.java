@@ -22,10 +22,23 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dk.nelind.loofah;
+package dk.nelind.loofah.accessor.world.level.block.entity;
 
-import org.spongepowered.common.SpongeServer;
+import net.minecraft.core.NonNullList;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.SingleRecipeInput;
+import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.gen.Invoker;
+import org.spongepowered.common.UntransformedInvokerError;
 
-public interface FabricServer extends FabricEngine, SpongeServer {
-
+@Mixin(AbstractFurnaceBlockEntity.class)
+public interface AbstractFurnaceBlockEntityAccessor_Fabric {
+    @Invoker("canBurn")
+    static boolean invoker$canBurn(final RegistryAccess registryAccess, @Nullable final RecipeHolder<?> var0, final SingleRecipeInput input, final NonNullList<ItemStack> var1, final int var2) {
+        throw new UntransformedInvokerError();
+    }
 }

@@ -65,14 +65,14 @@ public abstract class LevelStorageSourceMixin_Vanilla {
         )
     )
     private static PrimaryLevelData impl$readSpongeLevelData(
-        final Dynamic<?> $$0,
-        final LevelSettings $$1,
-        final PrimaryLevelData.SpecialWorldProperty $$2,
-        final WorldOptions $$3,
-        final Lifecycle $$4,
+        final Dynamic<?> dynamic,
+        final LevelSettings settings,
+        final PrimaryLevelData.SpecialWorldProperty special,
+        final WorldOptions options,
+        final Lifecycle lifecycle,
         final Operation<PrimaryLevelData> original
     ) {
-        final PrimaryLevelData levelData = original.call($$0, $$1, $$2, $$3, $$4);
+        final PrimaryLevelData levelData = original.call(dynamic, settings, special, options, lifecycle);
 
         ((PrimaryLevelDataBridge) levelData).bridge$readSpongeLevelData(LevelStorageSourceMixin_Vanilla.impl$spongeLevelData);
 
