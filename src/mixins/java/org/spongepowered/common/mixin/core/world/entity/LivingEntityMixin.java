@@ -31,8 +31,6 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvent;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.damagesource.CombatTracker;
 import net.minecraft.world.damagesource.DamageSource;
@@ -105,11 +103,15 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
     @Shadow public abstract int shadow$getUseItemRemainingTicks();
     @Shadow public abstract float shadow$getHealth();
     @Shadow public abstract CombatTracker shadow$getCombatTracker();
-    @Shadow public void shadow$kill() { }
+    @Shadow public void shadow$kill(ServerLevel level) { }
     @Shadow public abstract InteractionHand shadow$getUsedItemHand();
     @Shadow public abstract Optional<BlockPos> shadow$getSleepingPos();
     @Shadow protected abstract void shadow$spawnItemParticles(ItemStack stack, int count);
     @Shadow public abstract ItemStack shadow$getItemInHand(InteractionHand hand);
+    @Shadow protected abstract void shadow$dropEquipment(ServerLevel level);
+    @Shadow protected abstract void shadow$dropAllDeathLoot(ServerLevel level, DamageSource damageSourceIn);
+    @Shadow @Nullable public abstract LivingEntity shadow$getKillCredit();
+    @Shadow protected abstract void shadow$createWitherRose(@Nullable LivingEntity p_226298_1_);
     @Shadow public abstract float shadow$getMaxHealth();
     @Shadow public abstract AttributeMap shadow$getAttributes();
     @Shadow public abstract void shadow$clearSleepingPos();
@@ -144,7 +146,7 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
 
     @Inject(method = "die", at = @At("HEAD"), cancellable = true)
     private void impl$throwDestructEntityDeath(final DamageSource cause, final CallbackInfo ci) {
-        final boolean throwEvent = !((LevelBridge) this.shadow$level()).bridge$isFake() && Sponge.isServerAvailable() && Sponge.server().onMainThread();
+        final boolean throwEvent = !((LevelBridge) this.shadow$level()).bridge$isFake() && Sponge.isServerAvailable() && PhaseTracker.getWorldInstance().onSidedThread();
         if (!this.dead) { // isDead should be set later on in this method so we aren't re-throwing the events.
             if (throwEvent && this.impl$deathEventsPosted <= Constants.Sponge.MAX_DEATH_EVENTS_BEFORE_GIVING_UP) {
                 // ignore because some moron is not resetting the entity.
@@ -169,11 +171,13 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
 
     @WrapOperation(method = "dropAllDeathLoot",
             at = @At(value = "INVOKE",
-                    target = "Lnet/minecraft/world/entity/LivingEntity;dropEquipment()V"
+                    target = "Lnet/minecraft/world/entity/LivingEntity;dropEquipment(Lnet/minecraft/server/level/ServerLevel;)V"
             )
     )
-    protected void impl$dropInventoryWrapForPlayerOverride(final LivingEntity instance, final Operation<Void> original) {
-        original.call(instance);
+    protected void impl$dropInventoryWrapForPlayerOverride(
+        final LivingEntity instance, final ServerLevel level, final Operation<Void> original
+    ) {
+        original.call(instance, level);
     }
 
     @Inject(method = "pushEntities", at = @At("HEAD"), cancellable = true)
@@ -183,14 +187,7 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
         }
     }
 
-    @Redirect(method = "triggerItemUseEffects",
-        at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/world/entity/LivingEntity;spawnItemParticles(Lnet/minecraft/world/item/ItemStack;I)V"))
-    private void impl$hideItemParticlesIfVanished(final LivingEntity livingEntity, final ItemStack stack, final int count) {
-        if (this.bridge$vanishState().createsParticles()) {
-            this.shadow$spawnItemParticles(stack, count);
-        }
-    }
+
 
     @Inject(method = "randomTeleport", at = @At("HEAD"))
     private void impl$snapshotPositionBeforeVanillaTeleportLogic(final double x, final double y, final double z, final boolean changeState,
@@ -239,23 +236,6 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
         if (this.bridge$vanishState().ignoresCollisions()) {
             cir.setReturnValue(false);
         }
-    }
-
-    @Redirect(
-        method = "eat(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/food/FoodProperties;)Lnet/minecraft/world/item/ItemStack;",
-        at = @At(
-            value = "INVOKE",
-            target = "Lnet/minecraft/world/level/Level;playSound(Lnet/minecraft/world/entity/player/Player;DDDLnet/minecraft/sounds/SoundEvent;Lnet/minecraft/sounds/SoundSource;FF)V"
-        )
-    )
-    private void impl$ignoreExperienceLevelSoundsWhileVanished(final net.minecraft.world.level.Level world,
-        final net.minecraft.world.entity.player.Player player, final double x, final double y, final double z,
-        final SoundEvent sound, final SoundSource category, final float volume, final float pitch
-    ) {
-        if (!this.bridge$vanishState().createsSounds()) {
-            return;
-        }
-        world.playSound(player, x, y, z, sound, category, volume, pitch);
     }
 
     @Redirect(method = "checkFallDamage",
@@ -392,7 +372,7 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
     @Inject(method = "completeUsingItem",
         cancellable = true,
         at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/world/entity/LivingEntity;triggerItemUseEffects(Lnet/minecraft/world/item/ItemStack;I)V"))
+            target = "Lnet/minecraft/world/item/ItemStack;finishUsingItem(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/LivingEntity;)Lnet/minecraft/world/item/ItemStack;"))
     private void impl$onUpdateItemUse(final CallbackInfo ci) {
         if (this.shadow$level().isClientSide) {
             return;
@@ -473,17 +453,18 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
             stack.releaseUsing(world, self, duration);
             return;
         }
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
+        final PhaseTracker phaseTracker = PhaseTracker.getWorldInstance((ServerLevel) world);
+        try (final CauseStackManager.StackFrame frame = phaseTracker.pushCauseFrame()) {
             final ItemStackSnapshot snapshot = ItemStackUtil.snapshotOf(stack);
             final HandType handType = (HandType) (Object) this.shadow$getUsedItemHand();
             this.impl$addSelfToFrame(frame, snapshot, handType);
             final Ticks ticksDuration = SpongeTicks.ticksOrInfinite(duration);
-            if (!SpongeCommon.post(SpongeEventFactory.createUseItemStackEventStop(PhaseTracker.getInstance().currentCause(),
+            if (!SpongeCommon.post(SpongeEventFactory.createUseItemStackEventStop(phaseTracker.currentCause(),
                 ticksDuration, ticksDuration, snapshot))) {
                 stack.releaseUsing(world, self, duration);
                 if (self instanceof ServerPlayer) {
                     // Log Change and capture SlotTransactions
-                    PhaseTracker.SERVER.getPhaseContext().getTransactor().logPlayerInventoryChange(((ServerPlayer) self), PlayerInventoryTransaction.EventCreator.STANDARD);
+                    phaseTracker.getPhaseContext().getTransactor().logPlayerInventoryChange(((ServerPlayer) self), PlayerInventoryTransaction.EventCreator.STANDARD);
                     ((ServerPlayer) self).inventoryMenu.broadcastChanges();
                 }
             }

@@ -71,16 +71,16 @@ public class CraftingPreviewTransaction extends ContainerBasedTransaction {
     @Override
     Optional<ClickContainerEvent> createInventoryEvent(final List<SlotTransaction> slotTransactions, final List<Entity> entities,
             final PhaseContext<@NonNull ?> context, final Cause currentCause) {
-        if (slotTransactions.isEmpty()) {
+        if (slotTransactions.isEmpty() || !(this.player instanceof ServerPlayer sp)) {
             return Optional.empty();
         }
         final ItemStackSnapshot cursor = ItemStackUtil.snapshotOf(this.player.containerMenu.getCarried());
         final SlotTransaction previewTransaction = this.getPreviewTransaction(this.craftingInventory.result(), slotTransactions);
-        final var recipe = this.player.level().getRecipeManager().getRecipeFor(RecipeType.CRAFTING, this.craftSlots.asCraftInput(), this.player.level());
+        final var recipe = sp.serverLevel().recipeAccess().getRecipeFor(RecipeType.CRAFTING, this.craftSlots.asCraftInput(), this.player.level());
         final CraftItemEvent.Preview event = SpongeEventFactory.createCraftItemEventPreview(currentCause,
                 ContainerUtil.fromNative(this.menu), this.craftingInventory, new Transaction<>(cursor, cursor), previewTransaction,
                 recipe.map(RecipeHolder::value).map(CraftingRecipe.class::cast),
-                recipe.map(RecipeHolder::id).map(ResourceKey.class::cast),
+                recipe.map(r -> (ResourceKey) (Object) r.id().location()),
                 Optional.empty(), slotTransactions);
         return Optional.of(event);
     }

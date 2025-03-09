@@ -14,7 +14,7 @@ plugins {
     alias(libs.plugins.shadow)
     id("implementation-structure")
     alias(libs.plugins.blossom)
-    id("dev.architectury.loom") version "1.9.424"
+    id("dev.architectury.loom")
 }
 
 val commonProject = parent!!
@@ -231,7 +231,7 @@ val forgeManifest = java.manifest {
             "Specification-Vendor" to "SpongePowered",
             "Specification-Version" to apiVersion,
             "Implementation-Title" to project.name,
-            "Implementation-Version" to spongeImpl.generatePlatformBuildVersionString(apiVersion, minecraftVersion, recommendedVersion, neoForgeVersion),
+            "Implementation-Version" to version,
             "Implementation-Vendor" to "SpongePowered"
     )
     // These two are included by most CI's
@@ -312,7 +312,7 @@ tasks {
                         .toList()
             }
 
-            jvmArguments.add("-Dbsl.debug=true") // Uncomment to debug bootstrap classpath
+            // jvmArguments.add("-Dbsl.debug=true") // Uncomment to debug bootstrap classpath
 
             sourceSets.forEach {
                 dependsOn(it.classesTaskName)
@@ -352,6 +352,9 @@ tasks {
 
         from(commonProject.sourceSets.named("applaunch").map { it.output })
         from(forgeAppLaunch.output)
+        // We need to exclude this as NeoForge ships jackson-core as a library
+        // and we would be violating the packages
+        dependencyFilter.exclude(dependencyFilter.dependency("com.fasterxml.jackson.core:jackson-core"))
 
         // Make sure to relocate access widener so that we don't conflict with other coremods
         relocate("net.fabricmc.accesswidener", "org.spongepowered.neoforge.libs.accesswidener")
@@ -409,8 +412,9 @@ tasks {
 sourceSets {
     main {
         blossom.resources {
-            property("version", project.provider { project.version.toString() })
-            property("description", project.description.toString())
+            property("apiVersion", apiVersion)
+            property("version", version.toString())
+            property("description", description.toString())
             property("neoForgeVersion", neoForgeVersion)
         }
     }

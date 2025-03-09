@@ -60,10 +60,10 @@ public final class SpongeForgeMod {
 
     private final Logger logger = LogManager.getLogger("spongeforge");
 
-    public SpongeForgeMod() {
+    public SpongeForgeMod(FMLJavaModLoadingContext ctx) {
         // WorldPersistenceHooks.addHook(SpongeLevelDataPersistence.INSTANCE); // TODO SF 1.19.4
 
-        final IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
+        final IEventBus modBus = ctx.getModEventBus();
 
         // modBus: add all FML events with it
         modBus.addListener(this::onCommonSetup);

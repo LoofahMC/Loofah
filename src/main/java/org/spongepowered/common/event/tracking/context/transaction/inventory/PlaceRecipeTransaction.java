@@ -26,7 +26,6 @@ package org.spongepowered.common.event.tracking.context.transaction.inventory;
 
 import net.minecraft.network.protocol.game.ServerboundPlaceRecipePacket;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -53,10 +52,10 @@ public class PlaceRecipeTransaction extends ContainerBasedTransaction {
     private final ServerPlayer player;
     private final ItemStackSnapshot originalCursor;
     private boolean shift;
-    private RecipeHolder<Recipe<?>> recipe;
+    private RecipeHolder<?> recipe;
     private CraftingInventory craftingInventory;
 
-    public PlaceRecipeTransaction(final ServerPlayer player, final boolean shift, final RecipeHolder<Recipe<?>> recipe, CraftingInventory craftingInventory) {
+    public PlaceRecipeTransaction(final ServerPlayer player, final boolean shift, final RecipeHolder<?> recipe, CraftingInventory craftingInventory) {
         super(player.containerMenu);
         this.player = player;
         this.originalCursor = ItemStackUtil.snapshotOf(player.containerMenu.getCarried());
@@ -78,13 +77,13 @@ public class PlaceRecipeTransaction extends ContainerBasedTransaction {
             event = SpongeEventFactory.createClickContainerEventRecipeAll(cause, (Container) this.menu,
                     this.craftingInventory, cursorTransaction, preview,
                     Optional.of(this.recipe).map(RecipeHolder::value).map(CraftingRecipe.class::cast),
-                    Optional.of(this.recipe).map(RecipeHolder::id).map(ResourceKey.class::cast),
+                    Optional.of(this.recipe).map(r -> (ResourceKey) (Object) r.id().location()),
                     Optional.empty(), slotTransactions);
         } else {
             event = SpongeEventFactory.createClickContainerEventRecipeSingle(cause, (Container) this.menu,
                     this.craftingInventory, cursorTransaction, preview,
                     Optional.of(this.recipe).map(RecipeHolder::value).map(CraftingRecipe.class::cast),
-                    Optional.of(this.recipe).map(RecipeHolder::id).map(ResourceKey.class::cast),
+                    Optional.of(this.recipe).map(r -> (ResourceKey) (Object) r.id().location()),
                     Optional.empty(), slotTransactions);
         }
         return Optional.of(event);
@@ -105,7 +104,7 @@ public class PlaceRecipeTransaction extends ContainerBasedTransaction {
         if (!(context instanceof InventoryPacketContext)) {
             return false;
         }
-        final int containerId = ((InventoryPacketContext) context).<ServerboundPlaceRecipePacket>getPacket().getContainerId();
+        final int containerId = ((InventoryPacketContext) context).<ServerboundPlaceRecipePacket>getPacket().containerId();
         return containerId != this.player.containerMenu.containerId;
     }
 }

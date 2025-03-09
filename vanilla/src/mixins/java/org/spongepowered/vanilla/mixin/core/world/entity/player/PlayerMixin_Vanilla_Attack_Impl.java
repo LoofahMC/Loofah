@@ -41,7 +41,7 @@ public abstract class PlayerMixin_Vanilla_Attack_Impl {
      */
     @ModifyConstant(method = "attack", constant = @Constant(floatValue = 1.5F),
             slice = @Slice(from = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Player;isSprinting()Z", ordinal = 1),
-                           to = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/player/Player;walkDist:F"))
+                           to = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Player;getKnownMovement()Lnet/minecraft/world/phys/Vec3;"))
     )
     public float attackImpl$critHook(final float constant) {
         // if (isCritical) damage *= 1.5F;

@@ -29,7 +29,9 @@ import com.mojang.datafixers.util.Pair;
 import net.minecraft.SharedConstants;
 import net.minecraft.Util;
 import net.minecraft.commands.Commands.CommandSelection;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.LayeredRegistryAccess;
+import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.resources.RegistryDataLoader;
 import net.minecraft.server.Bootstrap;
@@ -40,6 +42,7 @@ import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.repository.ServerPacksSource;
 import net.minecraft.server.packs.resources.CloseableResourceManager;
 import net.minecraft.server.packs.resources.MultiPackResourceManager;
+import net.minecraft.tags.TagLoader;
 import net.minecraft.world.level.WorldDataConfiguration;
 import org.spongepowered.vanilla.generator.item.ItemRegistries;
 import org.spongepowered.vanilla.generator.world.TagRegistries;
@@ -127,24 +130,25 @@ public final class GeneratorMain {
         // We don't currently try to load any datapacks here
         final var packRepository = ServerPacksSource.createVanillaTrustedRepository();
         MinecraftServer.configurePackRepository(packRepository, WorldDataConfiguration.DEFAULT, /* safeMode = */ false, true);
-        final CloseableResourceManager resourceManager = new MultiPackResourceManager(PackType.SERVER_DATA, packRepository.openAllSelected());
+        final CloseableResourceManager rm = new MultiPackResourceManager(PackType.SERVER_DATA, packRepository.openAllSelected());
 
         // WorldLoader.load
         final LayeredRegistryAccess<RegistryLayer> staticRegistries = RegistryLayer.createRegistryAccess();
-        final LayeredRegistryAccess<RegistryLayer> withWorldgen = staticRegistries.replaceFrom(
-            RegistryLayer.WORLDGEN,
-            RegistryDataLoader.load(resourceManager, staticRegistries.getAccessForLoading(RegistryLayer.WORLDGEN), RegistryDataLoader.WORLDGEN_REGISTRIES)
-        );
-        final LayeredRegistryAccess<RegistryLayer> withDimensions = withWorldgen.replaceFrom(
-            RegistryLayer.DIMENSIONS,
-            RegistryDataLoader.load(resourceManager, staticRegistries.getAccessForLoading(RegistryLayer.DIMENSIONS), RegistryDataLoader.DIMENSION_REGISTRIES)
-        );
-
+        List<Registry.PendingTags<?>> pendingTags = TagLoader.loadTagsForExistingRegistries(rm, staticRegistries.getLayer(RegistryLayer.STATIC));
+        final var wga = staticRegistries.getAccessForLoading(RegistryLayer.WORLDGEN);
+        List<HolderLookup.RegistryLookup<?>> tl = TagLoader.buildUpdatedLookups(wga, pendingTags);
+        RegistryAccess.Frozen wgr = RegistryDataLoader.load(rm, tl, RegistryDataLoader.WORLDGEN_REGISTRIES);
+        List<HolderLookup.RegistryLookup<?>> cl = Stream.concat(tl.stream(), wgr.listRegistries()).toList();
+        final LayeredRegistryAccess<RegistryLayer> withWorldGen = staticRegistries.replaceFrom(RegistryLayer.WORLDGEN, wgr);
+        RegistryAccess.Frozen da = RegistryDataLoader.load(rm, cl, RegistryDataLoader.DIMENSION_REGISTRIES);
+        final LayeredRegistryAccess<RegistryLayer> withDimensions = withWorldGen.replaceFrom(RegistryLayer.DIMENSIONS, da);
+        TagLoader.loadTagsForExistingRegistries(rm, withDimensions.getLayer(RegistryLayer.WORLDGEN));
 
         final RegistryAccess.Frozen compositeRegistries = withDimensions.getAccessForLoading(RegistryLayer.RELOADABLE);
         final var resourcesFuture = ReloadableServerResources.loadResources(
-            resourceManager,
+            rm,
             withDimensions,
+            pendingTags,
             packRepository.getRequestedFeatureFlags(),
             CommandSelection.ALL,
             2, // functionPermissionLevel
@@ -152,10 +156,10 @@ public final class GeneratorMain {
             Runnable::run // applyExecutor
         ).whenComplete((result, ex) -> {
             if (ex != null) {
-                resourceManager.close();
+                rm.close();
             }
         }).thenApply(resources -> {
-            resources.updateRegistryTags();
+            resources.updateStaticRegistryTags();
             return resources;
         });
 

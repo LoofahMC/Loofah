@@ -26,6 +26,7 @@ package org.spongepowered.common.mixin.core.world.entity.projectile;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.Level;
@@ -70,7 +71,7 @@ public abstract class ProjectileUtilMixin {
                 final Vec3 to = from.add(velocity);
                 final Vec3 direction = from.subtract(to);
 
-                cir.setReturnValue(BlockHitResult.miss(to, Direction.getNearest(direction.x, direction.y, direction.z), BlockPos.containing(to)));
+                cir.setReturnValue(BlockHitResult.miss(to, Direction.getApproximateNearest(direction.x, direction.y, direction.z), BlockPos.containing(to)));
             }
         }
     }
@@ -84,7 +85,7 @@ public abstract class ProjectileUtilMixin {
             return ProjectileUtil.getEntityHitResult($$0, $$1, $$2, $$3, $$4, $$5, $$6);
         }
         try (final PhaseContext<@NonNull ?> context = EntityPhase.State.COLLISION
-                .createPhaseContext(PhaseTracker.SERVER)
+                .createPhaseContext(PhaseTracker.getWorldInstance((ServerLevel) $$0))
                 .source($$1)
         ) {
             context.buildAndSwitch();

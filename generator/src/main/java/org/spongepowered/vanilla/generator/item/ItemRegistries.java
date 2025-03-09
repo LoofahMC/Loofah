@@ -25,10 +25,13 @@
 package org.spongepowered.vanilla.generator.item;
 
 import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.Rarity;
-import net.minecraft.world.item.Tiers;
+import net.minecraft.world.item.ToolMaterial;
+import net.minecraft.world.item.equipment.ArmorMaterials;
+import org.spongepowered.vanilla.generator.ClassFieldsValidator;
 import org.spongepowered.vanilla.generator.Context;
 import org.spongepowered.vanilla.generator.EnumEntriesValidator;
 import org.spongepowered.vanilla.generator.Generator;
@@ -37,6 +40,7 @@ import org.spongepowered.vanilla.generator.RegistryEntriesValidator;
 import org.spongepowered.vanilla.generator.RegistryScope;
 
 import java.util.List;
+import java.util.Locale;
 
 public class ItemRegistries {
 
@@ -114,19 +118,16 @@ public class ItemRegistries {
                 "getSerializedName",
                 "sponge"
             ),
-            new EnumEntriesValidator<>(
+            new ClassFieldsValidator<>(
                 "data.type",
                 "ItemTiers",
-                Tiers.class,
-                "name",
-                "sponge"
+                ToolMaterial.class
             ),
-            new RegistryEntriesGenerator<>(
+            new ClassFieldsValidator<>(
                 "data.type",
                 "ArmorMaterials",
-                "ARMOR_MATERIAL",
-                context.relativeClass("data.type", "ArmorMaterial"),
-                Registries.ARMOR_MATERIAL
+                ArmorMaterials.class,
+                (s) -> ResourceLocation.withDefaultNamespace(s.toLowerCase(Locale.ROOT).replace("_scute", ""))
             )
         );
     }

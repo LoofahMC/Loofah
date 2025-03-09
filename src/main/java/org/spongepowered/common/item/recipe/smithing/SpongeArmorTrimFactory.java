@@ -39,9 +39,9 @@ public class SpongeArmorTrimFactory implements ArmorTrim.Factory {
         final var trimRegistry = Sponge.server().registry(RegistryTypes.TRIM_MATERIAL);
         final var patternRegistry = Sponge.server().registry(RegistryTypes.TRIM_PATTERN);
 
-        final var materialHolder = ((Registry<net.minecraft.world.item.armortrim.TrimMaterial>) trimRegistry).wrapAsHolder((net.minecraft.world.item.armortrim.TrimMaterial) (Object) material);
-        final var patternHolder = ((Registry<net.minecraft.world.item.armortrim.TrimPattern>) patternRegistry).wrapAsHolder((net.minecraft.world.item.armortrim.TrimPattern) (Object) pattern);
-        return (ArmorTrim) new net.minecraft.world.item.armortrim.ArmorTrim(materialHolder, patternHolder);
+        final var materialHolder = ((Registry<net.minecraft.world.item.equipment.trim.TrimMaterial>) trimRegistry).wrapAsHolder((net.minecraft.world.item.equipment.trim.TrimMaterial) (Object) material);
+        final var patternHolder = ((Registry<net.minecraft.world.item.equipment.trim.TrimPattern>) patternRegistry).wrapAsHolder((net.minecraft.world.item.equipment.trim.TrimPattern) (Object) pattern);
+        return (ArmorTrim) (Object) new net.minecraft.world.item.equipment.trim.ArmorTrim(materialHolder, patternHolder);
     }
 
 }

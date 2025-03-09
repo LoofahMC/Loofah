@@ -27,6 +27,7 @@ package org.spongepowered.common.mixin.inventory.event.server.level;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Cancellable;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.EntityType;
@@ -36,6 +37,7 @@ import net.minecraft.world.level.Level;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
@@ -53,8 +55,10 @@ import java.util.OptionalInt;
 public abstract class ServerPlayerMixin_Shared_Inventory extends PlayerMixin_Inventory {
 
     // @formatter:off
-    @Nullable private Object inventory$menuProvider;
+    @Shadow public abstract ServerLevel shadow$serverLevel();
     // @formatter:on
+
+    @Nullable private Object inventory$menuProvider;
 
     protected ServerPlayerMixin_Shared_Inventory(final EntityType<?> param0, final Level param1) {
         super(param0, param1);
@@ -70,7 +74,7 @@ public abstract class ServerPlayerMixin_Shared_Inventory extends PlayerMixin_Inv
         )
     )
     private void impl$afterOpenMenu(final CallbackInfoReturnable<OptionalInt> cir) {
-        PhaseTracker.SERVER.getPhaseContext().getTransactor().logContainerSet((ServerPlayer) (Object) this);
+        PhaseTracker.getWorldInstance(this.shadow$serverLevel()).getPhaseContext().getTransactor().logContainerSet((ServerPlayer) (Object) this);
     }
 
     @Inject(method = "openMenu", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerPlayer;initMenu(Lnet/minecraft/world/inventory/AbstractContainerMenu;)V"))
@@ -96,7 +100,7 @@ public abstract class ServerPlayerMixin_Shared_Inventory extends PlayerMixin_Inv
         final MenuProvider menuProvider, final int containerCounter, final net.minecraft.world.entity.player.Inventory inventory,
         final Player player, final Operation<AbstractContainerMenu> original, final @Cancellable CallbackInfoReturnable<OptionalInt> cir
     ) {
-        final PhaseContext<?> context = PhaseTracker.SERVER.getPhaseContext();
+        final PhaseContext<?> context = PhaseTracker.getWorldInstance(this.shadow$serverLevel()).getPhaseContext();
         try (final EffectTransactor ignored = context.getTransactor().logOpenInventory((ServerPlayer) (Object) this)) {
             final AbstractContainerMenu menu = original.call(menuProvider, containerCounter, inventory, player);
             context.containerLocation().ifPresent(((ContainerBridge) menu)::bridge$setOpenLocation);

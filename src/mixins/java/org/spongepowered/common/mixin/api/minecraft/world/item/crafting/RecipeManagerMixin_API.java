@@ -24,13 +24,13 @@
  */
 package org.spongepowered.common.mixin.api.minecraft.world.item.crafting;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeInput;
 import net.minecraft.world.item.crafting.RecipeManager.CachedCheck;
+import net.minecraft.world.item.crafting.RecipeMap;
 import net.minecraft.world.item.crafting.SingleRecipeInput;
-import net.minecraft.world.level.Level;
 import org.spongepowered.api.ResourceKey;
 import org.spongepowered.api.item.inventory.ItemStackLike;
 import org.spongepowered.api.item.recipe.Recipe;
@@ -40,6 +40,7 @@ import org.spongepowered.api.item.recipe.cooking.CookingRecipe;
 import org.spongepowered.api.world.server.ServerWorld;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.common.accessor.world.item.crafting.RecipeMapAccessor;
 import org.spongepowered.common.inventory.util.InventoryUtil;
 import org.spongepowered.common.item.util.ItemStackUtil;
 
@@ -52,18 +53,25 @@ import java.util.stream.Collectors;
 public abstract class RecipeManagerMixin_API implements RecipeManager {
 
     // @formatter:off
-    @Shadow public abstract Optional<? extends net.minecraft.world.item.crafting.RecipeHolder<?>> shadow$byKey(ResourceLocation recipeId);
-    @Shadow protected abstract <I extends RecipeInput, T extends net.minecraft.world.item.crafting.Recipe<I>> Collection<RecipeHolder<T>> shadow$byType(net.minecraft.world.item.crafting.RecipeType<T> recipeTypeIn);
     @Shadow public abstract Collection<net.minecraft.world.item.crafting.RecipeHolder<?>> shadow$getRecipes();
     @Shadow public abstract <I extends RecipeInput, T extends net.minecraft.world.item.crafting.Recipe<I>> Optional<RecipeHolder<T>> shadow$getRecipeFor(net.minecraft.world.item.crafting.RecipeType<T> recipeTypeIn, I inventoryIn, net.minecraft.world.level.Level worldIn);
 
     // @formatter:on
 
+    @Shadow
+    private RecipeMap recipes;
+
     @SuppressWarnings({"DataFlowIssue", "unchecked"})
     @Override
     public Optional<Recipe<?>> byKey(final ResourceKey key) {
         Objects.requireNonNull(key);
-        return this.shadow$byKey((ResourceLocation) (Object) key).map(RecipeHolder::value).map(Recipe.class::cast);
+        // TODO - figure out how to do this better
+        for (var entry : ((RecipeMapAccessor) this.recipes).accessor$byKey().entrySet()) {
+            if (entry.getKey().location().equals(key)) {
+                return Optional.of(entry.getValue()).map(RecipeHolder::value).map(Recipe.class::cast);
+            }
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -76,7 +84,7 @@ public abstract class RecipeManagerMixin_API implements RecipeManager {
     @SuppressWarnings(value = {"unchecked", "rawtypes"})
     public <T extends Recipe<?>> Collection<T> allOfType(final RecipeType<T> type) {
         Objects.requireNonNull(type);
-        return this.shadow$byType((net.minecraft.world.item.crafting.RecipeType)type).stream().map(h -> ((RecipeHolder)h).value()).toList();
+        return this.recipes.byType((net.minecraft.world.item.crafting.RecipeType)type).stream().map(h -> ((RecipeHolder)h).value()).toList();
     }
 
     @Override
@@ -100,12 +108,12 @@ public abstract class RecipeManagerMixin_API implements RecipeManager {
 
         final var mcRecipeType = (net.minecraft.world.item.crafting.RecipeType) type;
         final var checker = net.minecraft.world.item.crafting.RecipeManager.createCheck(mcRecipeType);
-        final var level = (Level) world;
+        final var level = (ServerLevel) world;
 
         return InventoryUtil.toCraftingInput(inventory).flatMap(in -> RecipeManagerMixin_API.impl$getRecipe(level, checker, in));
     }
 
-    private static <I extends RecipeInput, T extends net.minecraft.world.item.crafting.Recipe<I>> Optional<Recipe<?>> impl$getRecipe(final Level level, final CachedCheck<I, T> checker, final I input) {
+    private static <I extends RecipeInput, T extends net.minecraft.world.item.crafting.Recipe<I>> Optional<Recipe<?>> impl$getRecipe(final ServerLevel level, final CachedCheck<I, T> checker, final I input) {
         return checker.getRecipeFor(input, level).map(RecipeHolder::value).map(Recipe.class::cast);
     }
 

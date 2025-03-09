@@ -24,8 +24,12 @@
  */
 package org.spongepowered.common.mixin.core.tags;
 
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.WritableRegistry;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.tags.TagEntry;
@@ -47,6 +51,7 @@ import org.spongepowered.common.accessor.tags.TagEntryAccessor;
 import org.spongepowered.common.bridge.server.packs.resources.ResourceManagerBridge;
 import org.spongepowered.common.bridge.tags.TagLoaderBridge;
 import org.spongepowered.common.bridge.tags.TagLoader_EntryWithSourceBridge;
+import org.spongepowered.common.launch.Launch;
 import org.spongepowered.common.tag.SpongePluginTagModifier;
 import org.spongepowered.common.tag.SpongePluginTagPredicate;
 import org.spongepowered.common.tag.SpongePluginTags;
@@ -177,10 +182,33 @@ public abstract class TagLoaderMixin<T> implements TagLoaderBridge<T> {
         return false;
     }
 
+    @SuppressWarnings("unchecked")
+    @WrapOperation(method = "loadTagsForRegistry", at = @At(value = "NEW", target = "Lnet/minecraft/tags/TagLoader;"))
+    private static <T> TagLoader<T> impl$onLoadTagsForRegistry(final TagLoader.ElementLookup<T> $$0, final String $$1, final Operation<TagLoader<T>> original,
+            final ResourceManager resourceManager, final WritableRegistry<T> registry) {
+        final TagLoader<T> loader = original.call($$0, $$1);
+        ((TagLoaderBridge<T>) loader).bridge$registryKey(registry.key());
+        return loader;
+    }
+
+    @SuppressWarnings("unchecked")
+    @WrapOperation(method = "loadPendingTags", at = @At(value = "NEW", target = "Lnet/minecraft/tags/TagLoader;"))
+    private static <T> TagLoader<T> impl$onLoadPendingTags(final TagLoader.ElementLookup<T> $$0, final String $$1, final Operation<TagLoader<T>> original,
+            final ResourceManager resourceManager, final Registry<T> registry) {
+        final TagLoader<T> loader = original.call($$0, $$1);
+        ((TagLoaderBridge<T>) loader).bridge$registryKey(registry.key());
+        return loader;
+    }
+
+    @Inject(method = "loadTagsForExistingRegistries", at = @At("HEAD"))
+    private static void impl$onLoadTagsForExistingRegistries(final ResourceManager $$0, final RegistryAccess $$1, final CallbackInfoReturnable<List<Registry.PendingTags<?>>> cir) {
+        Launch.instance().lifecycle().establishTags($$0);
+    }
+
     @Override
-    public void bridge$registryEntry(final RegistryAccess.RegistryEntry<T> registryEntry) {
+    public void bridge$registryKey(final net.minecraft.resources.ResourceKey<? extends Registry<?>> registryKey) {
         this.impl$registryType =
-            RegistryType.of((ResourceKey) (Object) registryEntry.key().registry(), (ResourceKey) (Object) registryEntry.key().location());
+            RegistryType.of((ResourceKey) (Object) registryKey.registry(), (ResourceKey) (Object) registryKey.location());
     }
 
     @Override

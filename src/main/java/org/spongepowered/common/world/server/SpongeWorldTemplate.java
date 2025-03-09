@@ -68,7 +68,7 @@ import org.spongepowered.api.world.server.storage.ServerWorldProperties;
 import org.spongepowered.common.SpongeCommon;
 import org.spongepowered.common.adventure.SpongeAdventure;
 import org.spongepowered.common.bridge.world.level.dimension.LevelStemBridge;
-import org.spongepowered.common.bridge.world.level.storage.PrimaryLevelDataBridge;
+import org.spongepowered.common.bridge.world.level.storage.ServerLevelDataBridge;
 import org.spongepowered.common.data.SpongeDataManager;
 import org.spongepowered.common.data.fixer.SpongeDataCodec;
 import org.spongepowered.common.data.holder.SpongeDataHolder;
@@ -250,7 +250,7 @@ public record SpongeWorldTemplate(ResourceKey key, LevelStem levelStem, DataPack
 
         @Override
         public Builder from(final ServerWorldProperties properties) {
-            final PrimaryLevelDataBridge bridge = (PrimaryLevelDataBridge) properties;
+            final ServerLevelDataBridge bridge = (ServerLevelDataBridge) properties;
             this.key = properties.key();
             properties.displayName().ifPresent(name -> this.data.set(Keys.DISPLAY_NAME, name));
             this.data.set(Keys.WORLD_TYPE, properties.worldType());
@@ -289,12 +289,12 @@ public record SpongeWorldTemplate(ResourceKey key, LevelStem levelStem, DataPack
 
         @NonNull
         private static Holder<DimensionType> dimensionTypeHolder(final WorldType worldType) {
-            final Registry<DimensionType> dimensionTypeRegistry = SpongeCommon.server().registryAccess().registryOrThrow(Registries.DIMENSION_TYPE);
+            final Registry<DimensionType> dimensionTypeRegistry = SpongeCommon.server().registryAccess().lookupOrThrow(Registries.DIMENSION_TYPE);
             final ResourceLocation key = dimensionTypeRegistry.getKey((DimensionType) (Object) worldType);
             if (key == null) {
                 return Holder.direct((DimensionType) (Object) worldType);
             }
-            return dimensionTypeRegistry.getHolderOrThrow(net.minecraft.resources.ResourceKey.create(Registries.DIMENSION_TYPE, key));
+            return dimensionTypeRegistry.getOrThrow(net.minecraft.resources.ResourceKey.create(Registries.DIMENSION_TYPE, key));
         }
 
     }

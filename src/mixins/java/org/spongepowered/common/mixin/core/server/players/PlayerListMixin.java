@@ -55,7 +55,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.border.BorderChangeListener;
 import net.minecraft.world.level.border.WorldBorder;
-import net.minecraft.world.level.portal.DimensionTransition;
+import net.minecraft.world.level.portal.TeleportTransition;
 import net.minecraft.world.level.storage.PlayerDataStorage;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.objectweb.asm.Opcodes;
@@ -102,7 +102,7 @@ import org.spongepowered.common.bridge.server.ServerScoreboardBridge;
 import org.spongepowered.common.bridge.server.level.ServerLevelBridge;
 import org.spongepowered.common.bridge.server.level.ServerPlayerBridge;
 import org.spongepowered.common.bridge.server.players.PlayerListBridge;
-import org.spongepowered.common.bridge.world.level.storage.PrimaryLevelDataBridge;
+import org.spongepowered.common.bridge.world.level.storage.ServerLevelDataBridge;
 import org.spongepowered.common.entity.player.LoginPermissions;
 import org.spongepowered.common.entity.player.SpongeUserView;
 import org.spongepowered.common.event.ShouldFire;
@@ -381,8 +381,8 @@ public abstract class PlayerListMixin implements PlayerListBridge {
     }
 
     @Redirect(method = "placeNewPlayer", at = @At(value = "FIELD", target = "Lnet/minecraft/server/players/PlayerList;viewDistance:I"))
-    private int impl$usePerWorldViewDistance(final PlayerList instance, final Connection $$0, final net.minecraft.server.level.ServerPlayer $$1, final CommonListenerCookie $$2) {
-        return ((PrimaryLevelDataBridge) $$1.serverLevel().getLevelData()).bridge$viewDistance().orElse( instance.getViewDistance());
+    private int impl$usePerWorldViewDistance(final PlayerList self, final Connection co, final net.minecraft.server.level.ServerPlayer player, final CommonListenerCookie cookie) {
+        return ((ServerLevelDataBridge) player.serverLevel().getLevelData()).bridge$viewDistance().orElse(self.getViewDistance());
     }
 
     @Redirect(method = "placeNewPlayer", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;getCustomBossEvents()Lnet/minecraft/server/bossevents/CustomBossEvents;"))
@@ -444,8 +444,9 @@ public abstract class PlayerListMixin implements PlayerListBridge {
 
         ((ServerPlayerBridge) mcPlayer).bridge$setConnectionMessageToSend(null);
 
-        final PhaseContext<?> context = PhaseTracker.SERVER.getPhaseContext();
-        PhaseTracker.SERVER.pushCause(event);
+        final PhaseTracker phaseTracker = PhaseTracker.getWorldInstance(mcPlayer.serverLevel());
+        final PhaseContext<?> context = phaseTracker.getPhaseContext();
+        phaseTracker.pushCause(event);
         final TransactionalCaptureSupplier transactor = context.getTransactor();
         transactor.logPlayerInventoryChange(mcPlayer, PlayerInventoryTransaction.EventCreator.STANDARD);
         try (final EffectTransactor ignored = BroadcastInventoryChangesEffect.transact(transactor)) {
@@ -491,10 +492,9 @@ public abstract class PlayerListMixin implements PlayerListBridge {
         ((ServerPlayer) entity).offer(Keys.LAST_DATE_JOINED, Instant.now());
     }
 
-    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @Inject(method = "respawn",
         at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/server/level/ServerPlayer;findRespawnPositionAndUseSpawnBlock(ZLnet/minecraft/world/level/portal/DimensionTransition$PostDimensionTransition;)Lnet/minecraft/world/level/portal/DimensionTransition;"
+            target = "Lnet/minecraft/server/level/ServerPlayer;findRespawnPositionAndUseSpawnBlock(ZLnet/minecraft/world/level/portal/TeleportTransition$PostTeleportTransition;)Lnet/minecraft/world/level/portal/TeleportTransition;"
         )
     )
     private void impl$flagIfRespawnPositionIsGameMechanic(final net.minecraft.server.level.ServerPlayer $$0, final boolean $$1,
@@ -511,7 +511,7 @@ public abstract class PlayerListMixin implements PlayerListBridge {
         )
     )
     private double impl$callRespawnPlayerRecreateEvent(final net.minecraft.server.level.ServerPlayer newPlayer,
-            final net.minecraft.server.level.ServerPlayer player, final boolean keepAllPlayerData, final @Local DimensionTransition dimensionTransition) {
+            final net.minecraft.server.level.ServerPlayer player, final boolean keepAllPlayerData, final @Local TeleportTransition dimensionTransition) {
         final ServerPlayer originalPlayer = (ServerPlayer) player;
         final ServerPlayer recreatedPlayer = (ServerPlayer) newPlayer;
 
@@ -550,7 +550,7 @@ public abstract class PlayerListMixin implements PlayerListBridge {
 
     @Inject(method = "respawn", at = @At("RETURN"))
     private void impl$callRespawnPlayerPostEvent(final net.minecraft.server.level.ServerPlayer player, final boolean $$1, final Entity.RemovalReason $$2,
-            final CallbackInfoReturnable<net.minecraft.server.level.ServerPlayer> cir, final @Local DimensionTransition dimensionTransition) {
+            final CallbackInfoReturnable<net.minecraft.server.level.ServerPlayer> cir, final @Local TeleportTransition dimensionTransition) {
         final ServerPlayer recreatedPlayer = (ServerPlayer) cir.getReturnValue();
         final ServerWorld originalWorld = (ServerWorld) player.serverLevel();
 
@@ -636,7 +636,7 @@ public abstract class PlayerListMixin implements PlayerListBridge {
         final Predicate<net.minecraft.server.level.ServerPlayer> filter;
         ChatType.Bound boundChatType;
 
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.SERVER.pushCauseFrame()) {
+        try (final CauseStackManager.StackFrame frame = PhaseTracker.getServerInstanceExplicitly().pushCauseFrame()) {
             if ($$2 != null) {
                 frame.pushCause($$2);
             }

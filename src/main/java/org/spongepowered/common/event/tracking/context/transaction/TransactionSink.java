@@ -35,7 +35,6 @@ import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
-import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -371,7 +370,7 @@ interface TransactionSink {
         return this.pushEffect(new ResultingTransactionBySideEffect(InventoryEffect.getInstance()));
     }
 
-    default EffectTransactor logPlaceRecipe(final boolean shift, final RecipeHolder<Recipe<?>> recipe, final ServerPlayer player, final CraftingInventory craftInv) {
+    default EffectTransactor logPlaceRecipe(final boolean shift, final RecipeHolder<?> recipe, final ServerPlayer player, final CraftingInventory craftInv) {
         final PlaceRecipeTransaction transaction = new PlaceRecipeTransaction(player, shift, recipe, craftInv);
         this.logTransaction(transaction);
         return this.pushEffect(new ResultingTransactionBySideEffect(InventoryEffect.getInstance()));

@@ -34,12 +34,13 @@ import net.minecraft.world.entity.animal.MushroomCow;
 import net.minecraft.world.entity.animal.Panda;
 import net.minecraft.world.entity.animal.Parrot;
 import net.minecraft.world.entity.animal.Rabbit;
+import net.minecraft.world.entity.animal.Salmon;
 import net.minecraft.world.entity.animal.TropicalFish;
+import net.minecraft.world.entity.animal.axolotl.Axolotl;
 import net.minecraft.world.entity.animal.horse.Llama;
 import net.minecraft.world.entity.animal.horse.Markings;
 import net.minecraft.world.entity.animal.horse.Variant;
 import net.minecraft.world.entity.monster.SpellcasterIllager;
-import net.minecraft.world.entity.vehicle.Boat;
 import org.spongepowered.vanilla.generator.Context;
 import org.spongepowered.vanilla.generator.EnumEntriesValidator;
 import org.spongepowered.vanilla.generator.Generator;
@@ -57,13 +58,6 @@ public class EntityRegistries {
                 "entity",
                 "EntityCategories",
                 MobCategory.class,
-                "getSerializedName",
-                "sponge"
-            ),
-            new EnumEntriesValidator<>(
-                "data.type",
-                "BoatTypes",
-                Boat.Type.class,
                 "getSerializedName",
                 "sponge"
             ),
@@ -98,14 +92,14 @@ public class EntityRegistries {
             new EnumEntriesValidator<>(
                 "data.type",
                 "MooshroomTypes",
-                MushroomCow.MushroomType.class,
+                MushroomCow.Variant.class,
                 "getSerializedName",
                 "sponge"
             ),
             new EnumEntriesValidator<>(
                 "data.type",
                 "FoxTypes",
-                Fox.Type.class,
+                Fox.Variant.class,
                 "getSerializedName",
                 "sponge"
             ),
@@ -176,6 +170,20 @@ public class EntityRegistries {
                 "item.inventory.equipment",
                 "EquipmentTypes",
                 EquipmentSlot.class,
+                "getSerializedName",
+                "sponge"
+            ),
+            new EnumEntriesValidator<>(
+                "data.type",
+                "SalmonSizes",
+                Salmon.Variant.class,
+                "getSerializedName",
+                "sponge"
+            ),
+            new EnumEntriesValidator<>(
+                "data.type",
+                "AxolotlVariants",
+                Axolotl.Variant.class,
                 "getSerializedName",
                 "sponge"
             )

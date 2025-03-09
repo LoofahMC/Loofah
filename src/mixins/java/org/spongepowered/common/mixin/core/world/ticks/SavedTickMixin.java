@@ -26,7 +26,6 @@ package org.spongepowered.common.mixin.core.world.ticks;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.ticks.SavedTick;
-import net.minecraft.world.ticks.ScheduledTick;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -53,13 +52,6 @@ public abstract class SavedTickMixin<T> implements SpongeMutableDataHolder, Data
     @Override
     public void data$setCompound(final CompoundTag nbt) {
         this.impl$compound = nbt;
-    }
-
-    @Inject(method = "saveTick(Lnet/minecraft/world/ticks/ScheduledTick;Ljava/util/function/Function;J)Lnet/minecraft/nbt/CompoundTag;", at = @At("RETURN"))
-    private static <T> void impl$onSaveTick(final ScheduledTick<T> $$0, final Function<T, String> $$1, final long $$2, final CallbackInfoReturnable<CompoundTag> cir) {
-        if (DataUtil.syncDataToTag($$0)) {
-            cir.getReturnValue().merge(((DataCompoundHolder) (Object) $$0).data$getCompound());
-        }
     }
 
     @Inject(method = "save", at = @At("RETURN"))

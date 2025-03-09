@@ -58,7 +58,7 @@ public abstract class LevelTicksMixin_Tracker<T> {
         final var thisScheduledTick = this.alreadyRunThisTick.getLast();
         final CreatorTrackedBridge bridge = (CreatorTrackedBridge) (Object) thisScheduledTick;
         try (final var context = GenerationPhase.State.DEFERRED_SCHEDULED_UPDATE.createPhaseContext(
-                PhaseTracker.SERVER)
+                PhaseTracker.getWorldInstance())
             .source(this)
             .creator(bridge::tracker$getCreatorUUID)
             .notifier(bridge::tracker$getNotifierUUID)

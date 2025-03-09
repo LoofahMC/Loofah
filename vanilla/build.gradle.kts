@@ -1,4 +1,5 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import org.spongepowered.gradle.impl.IdeHelper
 
 plugins {
     id("org.spongepowered.gradle.vanilla")
@@ -9,6 +10,7 @@ plugins {
 }
 
 val commonProject = parent!!
+val bootstrapDevProject = commonProject.project(":bootstrap-dev")
 val transformersProject = commonProject.project(":modlauncher-transformers")
 val libraryManagerProject = commonProject.project(":library-manager")
 val testPluginsProject: Project? = rootProject.subprojects.find { "testplugins" == it.name }
@@ -23,7 +25,6 @@ description = "The SpongeAPI implementation for Vanilla Minecraft"
 version = spongeImpl.generatePlatformBuildVersionString(apiVersion, minecraftVersion, recommendedVersion)
 
 // SpongeVanilla libraries
-val devlaunchLibrariesConfig: NamedDomainObjectProvider<Configuration> = configurations.register("devlaunchLibraries")
 val installerLibrariesConfig: NamedDomainObjectProvider<Configuration> = configurations.register("installerLibraries")
 val initLibrariesConfig: NamedDomainObjectProvider<Configuration> = configurations.register("initLibraries") // JVM initial classpath
 val bootLibrariesConfig: NamedDomainObjectProvider<Configuration> = configurations.register("bootLibraries")
@@ -54,13 +55,6 @@ val mixins: NamedDomainObjectProvider<SourceSet> = commonProject.sourceSets.name
 val main: NamedDomainObjectProvider<SourceSet> = commonProject.sourceSets.named("main")
 
 // SpongeVanilla source sets
-// Dev launch
-val vanillaDevLaunch by sourceSets.register("devlaunch") {
-    configurations.named(implementationConfigurationName) {
-        extendsFrom(devlaunchLibrariesConfig.get())
-    }
-}
-
 // Prod launch
 val vanillaInstaller by sourceSets.register("installer") {
     configurations.named(implementationConfigurationName) {
@@ -126,27 +120,15 @@ val vanillaMain by sourceSets.named("main") {
 
     // The rest of the project because we want everything in the initial classpath
     spongeImpl.addDependencyToRuntimeOnly(mixins.get(), this)
-    spongeImpl.addDependencyToRuntimeOnly(vanillaDevLaunch, this)
     spongeImpl.addDependencyToRuntimeOnly(vanillaMixins, this)
-
-    configurations.named(runtimeOnlyConfigurationName) {
-        extendsFrom(devlaunchLibrariesConfig.get())
-    }
 }
 
 val superclassConfigs = spongeImpl.getNamedConfigurations("superClassChanges")
 val mixinConfigs = spongeImpl.mixinConfigurations
 
 minecraft {
-    main.get().resources
-            .filter { it.name.endsWith(".accesswidener") }
-            .files
-            .forEach { accessWideners(it) }
-
-    vanillaMain.resources
-            .filter { it.name.endsWith(".accesswidener") }
-            .files
-            .forEach { accessWideners(it) }
+    accessWideners(main.get().resources.filter { it.name.endsWith(".accesswidener") })
+    accessWideners(vanillaMain.resources.filter { it.name.endsWith(".accesswidener") })
 }
 
 configurations.configureEach {
@@ -157,9 +139,6 @@ configurations.configureEach {
 }
 
 dependencies {
-    val devlaunch = devlaunchLibrariesConfig.name
-    devlaunch(libs.bootstrap.api)
-
     val installer = installerLibrariesConfig.name
     installer(apiLibs.gson)
     installer(platform(apiLibs.configurate.bom))
@@ -234,17 +213,8 @@ dependencies {
         exclude(group = "org.checkerframework", module = "checker-qual")
     }
 
-    // All minecraft deps except itself
-    configurations.minecraft.get().resolvedConfiguration.resolvedArtifacts
-        .map {
-            var id = it.id.componentIdentifier.toString()
-            if (it.classifier != null) {
-                id += ":" + it.classifier
-            }
-            id
-        }
-        .filter { !it.startsWith("net.minecraft:joined") }
-        .forEach { boot(it) { isTransitive = false } }
+    // All minecraft dependencies except itself
+    spongeImpl.copyModulesExcludingPrefix(configurations.minecraft.get(), "net.minecraft", "joined", bootLibrariesConfig.get())
 
     boot(project(transformersProject.path)) {
         exclude(group = "cpw.mods", module = "modlauncher")
@@ -272,9 +242,9 @@ dependencies {
 
     spongeImpl.copyModulesExcludingProvided(gameLibrariesConfig.get(), bootLayerConfig.get(), gameManagedLibrariesConfig.get())
 
-    val runOnly = vanillaMain.runtimeOnlyConfigurationName
+    runtimeOnly(project(bootstrapDevProject.path))
     testPluginsProject?.also {
-        runOnly(project(it.path))
+        runtimeOnly(project(it.path))
     }
 }
 
@@ -296,11 +266,15 @@ minecraft {
             args("--launchTarget", "sponge_client_it")
         }
 
+        // Configure bootstrap-dev
+        val bootFileNames = spongeImpl.buildRuntimeFileNames(bootLayerConfig.get())
+        val gameShadedFileNames = spongeImpl.buildRuntimeFileNames(gameShadedLibrariesConfig.get())
+
         configureEach {
             targetVersion(apiJavaTarget.toInt())
             workingDirectory(project.file("run/"))
 
-            if (org.spongepowered.gradle.vanilla.internal.util.IdeConfigurer.isIdeaImport()) { // todo(zml): promote to API... eventually
+            if (IdeHelper.isIdeaActive()) {
                 // IntelliJ does not properly report its compatibility
                 jvmArgs("-Dterminal.ansi=true", "-Djansi.mode=force")
             }
@@ -331,8 +305,8 @@ minecraft {
 
             // Configure resources
             jvmArgs("-Dsponge.dev.root=" + project.rootDir)
-            jvmArgs("-Dsponge.dev.boot=" + bootLayerConfig.get().resolvedConfiguration.resolvedArtifacts.joinToString(";") { it.file.name })
-            jvmArgs("-Dsponge.dev.gameShaded=" + gameShadedLibrariesConfig.get().resolvedConfiguration.resolvedArtifacts.joinToString(";") { it.file.name })
+            jvmArgs("-Dsponge.dev.boot=$bootFileNames")
+            jvmArgs("-Dsponge.dev.gameShaded=$gameShadedFileNames")
         }
     }
 }
@@ -343,7 +317,7 @@ val vanillaManifest = java.manifest {
         "Specification-Vendor" to "SpongePowered",
         "Specification-Version" to apiVersion,
         "Implementation-Title" to project.name,
-        "Implementation-Version" to spongeImpl.generatePlatformBuildVersionString(apiVersion, minecraftVersion, recommendedVersion),
+        "Implementation-Version" to version,
         "Implementation-Vendor" to "SpongePowered"
     )
     // These two are included by most CI's
@@ -360,7 +334,7 @@ vanillaLaunch.apply {
     blossom.resources {
         property("apiVersion", apiVersion)
         property("minecraftVersion", minecraftVersion)
-        property("version", provider { project.version.toString() })
+        property("version", version.toString())
     }
 }
 vanillaInstaller.apply {

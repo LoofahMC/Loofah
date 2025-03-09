@@ -25,6 +25,7 @@
 package org.spongepowered.common.event.inventory;
 
 import net.kyori.adventure.text.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.MenuProvider;
@@ -91,9 +92,10 @@ public class InventoryEventFactory {
     public static boolean callPlayerInventoryPickupEvent(final Player player, final ItemEntity itemToPickup) {
         final ItemStack stack = itemToPickup.getItem();
         final ItemStackSnapshot snapshot = ItemStackUtil.snapshotOf(stack);
+        final PhaseTracker phaseTracker = PhaseTracker.getWorldInstance((ServerLevel) player.level());
         final ChangeInventoryEvent.Pickup.Pre event =
                 SpongeEventFactory.createChangeInventoryEventPickupPre(
-                    PhaseTracker.getInstance().currentCause(),
+                    phaseTracker.currentCause(),
                         Optional.empty(), Collections.singletonList(snapshot), ((Inventory) player.containerMenu), (Item) itemToPickup, snapshot);
         SpongeCommon.post(event);
         if (event.isCancelled()) {
@@ -106,7 +108,7 @@ public class InventoryEventFactory {
                 return true;
             }
 
-            final PhaseContext<@NonNull ?> context = PhaseTracker.SERVER.getPhaseContext();
+            final PhaseContext<@NonNull ?> context = phaseTracker.getPhaseContext();
             final TransactionalCaptureSupplier transactor = context.getTransactor();
             try (final EffectTransactor ignored = transactor.logPlayerInventoryChangeWithEffect(player, PlayerInventoryTransaction.EventCreator.PICKUP)) {
                 for (final ItemStackSnapshot item : list) {
@@ -126,7 +128,7 @@ public class InventoryEventFactory {
             stack.setCount(0);
             return true;
         } else {
-            final PhaseContext<@NonNull ?> context = PhaseTracker.SERVER.getPhaseContext();
+            final PhaseContext<@NonNull ?> context = phaseTracker.getPhaseContext();
             final TransactionalCaptureSupplier transactor = context.getTransactor();
             final boolean added;
             try (final EffectTransactor ignored = transactor.logPlayerInventoryChangeWithEffect(player, PlayerInventoryTransaction.EventCreator.PICKUP)) {
@@ -141,7 +143,8 @@ public class InventoryEventFactory {
     }
 
     public static ItemStack callHopperInventoryPickupEvent(final Container inventory, final ItemEntity item, final ItemStack stack) {
-        try (final CauseStackManager.StackFrame frame = PhaseTracker.getInstance().pushCauseFrame()) {
+        final PhaseTracker phaseTracker = PhaseTracker.getWorldInstance((ServerLevel) item.level());
+        try (final CauseStackManager.StackFrame frame = phaseTracker.pushCauseFrame()) {
             frame.pushCause(inventory);
 
             final ItemStackSnapshot snapshot = ItemStackUtil.snapshotOf(stack);
@@ -227,8 +230,8 @@ public class InventoryEventFactory {
         final ItemStackSnapshot newCursor = ItemStackUtil.snapshotOf(menu.getCarried());
         final Transaction<ItemStackSnapshot> cursorTransaction = new Transaction<>(ItemStackSnapshot.empty(), newCursor);
         final InteractContainerEvent.Open event =
-                SpongeEventFactory.createInteractContainerEventOpen(PhaseTracker.getInstance().currentCause(),
-                        (org.spongepowered.api.item.inventory.Container) menu, cursorTransaction);
+                SpongeEventFactory.createInteractContainerEventOpen(PhaseTracker.getWorldInstance(player.serverLevel()).currentCause(),
+                        (org.spongepowered.api.item.inventory.Container) player.containerMenu, cursorTransaction);
         SpongeCommon.post(event);
         if (event.isCancelled()) {
             return false;

@@ -82,7 +82,7 @@ public interface LevelAccessorMixin_API<P extends WorldLike<P>> extends WorldLik
         return PaletteWrapper.of(
             PaletteTypes.BLOCK_STATE_PALETTE.get(),
             Block.BLOCK_STATE_REGISTRY,
-            (org.spongepowered.api.registry.Registry<BlockType>) ((LevelAccessor) (Object) this).registryAccess().registryOrThrow(Registries.BLOCK)
+            (org.spongepowered.api.registry.Registry<BlockType>) ((LevelAccessor) (Object) this).registryAccess().lookupOrThrow(Registries.BLOCK)
         );
     }
 
@@ -98,7 +98,7 @@ public interface LevelAccessorMixin_API<P extends WorldLike<P>> extends WorldLik
             return false;
         }
 
-        return VolumeStreamUtils.setBiomeOnNativeChunk(x, y, z, biome, () -> iChunk.getSection(iChunk.getSectionIndex(y)), () -> iChunk.setUnsaved(true));
+        return VolumeStreamUtils.setBiomeOnNativeChunk(x, y, z, biome, () -> iChunk.getSection(iChunk.getSectionIndex(y)), iChunk::markUnsaved);
     }
 
     // Volume
@@ -171,7 +171,7 @@ public interface LevelAccessorMixin_API<P extends WorldLike<P>> extends WorldLik
         if (!((Level) this).isInWorldBounds(new BlockPos(x, y, z))) {
             throw new PositionOutOfBoundsException(new Vector3i(x, y, z), Constants.World.BLOCK_MIN, Constants.World.BLOCK_MAX);
         }
-        try (final @Nullable PhaseContext<@NonNull ?> context = PluginPhase.State.BLOCK_WORKER.switchIfNecessary(PhaseTracker.SERVER)) {
+        try (final @Nullable PhaseContext<@NonNull ?> context = PluginPhase.State.BLOCK_WORKER.switchIfNecessary(PhaseTracker.getWorldInstance((LevelAccessor) this))) {
             if (context != null) {
                 context.buildAndSwitch();
             }

@@ -24,7 +24,8 @@
  */
 package org.spongepowered.common.bridge.tags;
 
-import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagEntry;
 import net.minecraft.tags.TagLoader;
@@ -35,7 +36,7 @@ import java.util.function.Consumer;
 
 public interface TagLoaderBridge<T> {
 
-    void bridge$registryEntry(RegistryAccess.RegistryEntry<T> registryEntry);
+    void bridge$registryKey(ResourceKey<? extends Registry<?>> registryKey);
 
     void bridge$buildingTagKey(@Nullable ResourceLocation key);
 

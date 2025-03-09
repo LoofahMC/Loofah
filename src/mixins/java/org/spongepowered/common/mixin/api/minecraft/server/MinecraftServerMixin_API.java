@@ -26,7 +26,7 @@ package org.spongepowered.common.mixin.api.minecraft.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.mojang.datafixers.DataFixer;
+import com.llamalad7.mixinextras.sugar.Local;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.audience.MessageType;
 import net.kyori.adventure.identity.Identity;
@@ -38,11 +38,9 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.ServerScoreboard;
-import net.minecraft.server.Services;
 import net.minecraft.server.WorldStem;
 import net.minecraft.server.dedicated.DedicatedServer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.progress.ChunkProgressListenerFactory;
 import net.minecraft.server.packs.repository.PackRepository;
 import net.minecraft.server.players.PlayerList;
 import net.minecraft.world.level.levelgen.WorldDimensions;
@@ -101,7 +99,6 @@ import org.spongepowered.common.world.storage.SpongePlayerDataManager;
 import org.spongepowered.common.world.teleport.SpongeTeleportHelper;
 
 import java.net.InetSocketAddress;
-import java.net.Proxy;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -118,7 +115,7 @@ import java.util.stream.Stream;
 public abstract class MinecraftServerMixin_API implements SpongeServer, SpongeRegistryHolder {
 
     // @formatter:off
-    @Shadow @Final public long[] tickTimesNanos;
+    @Shadow @Final private long[] tickTimesNanos;
     @Shadow @Final protected WorldData worldData;
 
     @Shadow public abstract net.minecraft.world.item.crafting.RecipeManager shadow$getRecipeManager();
@@ -133,7 +130,6 @@ public abstract class MinecraftServerMixin_API implements SpongeServer, SpongeRe
     @Shadow public abstract boolean shadow$isPvpAllowed();
     @Shadow public abstract boolean shadow$isCommandBlockEnabled();
     @Shadow public abstract boolean shadow$isSpawningMonsters();
-    @Shadow public abstract boolean shadow$isSpawningAnimals();
     @Shadow public abstract Commands shadow$getCommands();
     @Shadow public abstract PackRepository shadow$getPackRepository();
     @Shadow public abstract net.minecraft.server.packs.resources.ResourceManager shadow$getResourceManager();
@@ -151,6 +147,7 @@ public abstract class MinecraftServerMixin_API implements SpongeServer, SpongeRe
 
     private Iterable<? extends Audience> audiences;
     private ServerScheduler api$scheduler;
+    private SpongeWorldManager api$worldManager;
     private SpongeTeleportHelper api$teleportHelper;
     private SpongePlayerDataManager api$playerDataHandler;
     private UsernameCache api$usernameCache;
@@ -164,15 +161,14 @@ public abstract class MinecraftServerMixin_API implements SpongeServer, SpongeRe
     private final BlockDestructionIdCache api$blockDestructionIdCache = new BlockDestructionIdCache(0, AtomicInteger::decrementAndGet);
 
     @Inject(method = "<init>", at = @At("TAIL"))
-    public void api$initializeSpongeFieldsfinal(final Thread $$0, final LevelStorageSource.LevelStorageAccess $$1, final PackRepository $$2, final WorldStem $$3, final Proxy $$4,
-            final DataFixer $$5, final Services $$6, final ChunkProgressListenerFactory $$7, final CallbackInfo ci) {
+    public void api$initializeSpongeFieldsfinal(final CallbackInfo ci, @Local(argsOnly = true) final WorldStem levelStem) {
         this.api$scheduler = new ServerScheduler();
+        this.api$worldManager = new SpongeWorldManager((MinecraftServer) (Object) this);
         this.api$playerDataHandler = new SpongePlayerDataManager(this);
         this.api$teleportHelper = new SpongeTeleportHelper();
         this.api$mapStorage = new SpongeMapStorage();
-        this.api$registryHolder = new RegistryHolderLogic($$3.registries().compositeAccess());
+        this.api$registryHolder = new RegistryHolderLogic(levelStem.registries().compositeAccess());
         this.api$userManager = new SpongeUserManager((MinecraftServer) (Object) this);
-
         this.api$dataPackManager = new SpongeDataPackManager((MinecraftServer) (Object) this, this.storageSource.getLevelPath(LevelResource.DATAPACK_DIR));
     }
 
@@ -270,11 +266,11 @@ public abstract class MinecraftServerMixin_API implements SpongeServer, SpongeRe
 
     @Override
     public boolean isAnimalSpawnsEnabled() {
-        return this.shadow$isSpawningAnimals();
+        return true;
     }
 
     /**
-     * See {@link SpongeWorldManager#loadLevel()}
+     * See {@link SpongeWorldManager}
      */
     @Override
     public boolean isMultiWorldEnabled() {
@@ -286,7 +282,7 @@ public abstract class MinecraftServerMixin_API implements SpongeServer, SpongeRe
         final WorldData overworldData = this.shadow$getWorldData();
 
         final WorldGenSettings settings = new WorldGenSettings(overworldData.worldGenOptions(),
-                new WorldDimensions(this.registryAccess().registryOrThrow(Registries.LEVEL_STEM)));
+                new WorldDimensions(this.registryAccess().lookupOrThrow(Registries.LEVEL_STEM)));
 
         return (WorldGenerationConfig) (Object) settings;
     }
@@ -294,6 +290,11 @@ public abstract class MinecraftServerMixin_API implements SpongeServer, SpongeRe
     @Override
     public SpongeUserManager userManager() {
         return this.api$userManager;
+    }
+
+    @Override
+    public SpongeWorldManager worldManager() {
+        return this.api$worldManager;
     }
 
     @Override public TeleportHelper teleportHelper() {

@@ -45,7 +45,7 @@ import java.util.function.Consumer;
 @Mixin(TagLoader.class)
 public abstract class TagLoaderMixin_Vanilla<T> implements TagLoaderBridge<T> {
 
-    @WrapOperation(method = "build(Lnet/minecraft/tags/TagEntry$Lookup;Ljava/util/List;)Lcom/mojang/datafixers/util/Either;",
+    @WrapOperation(method = "tryBuildTag(Lnet/minecraft/tags/TagEntry$Lookup;Ljava/util/List;)Lcom/mojang/datafixers/util/Either;",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/tags/TagEntry;build(Lnet/minecraft/tags/TagEntry$Lookup;Ljava/util/function/Consumer;)Z"))
     protected boolean vanilla$onBuildTag(final TagEntry instance, final TagEntry.Lookup<T> lookup, final Consumer<T> consumer, final Operation<Boolean> original,
             final TagEntry.Lookup<T> $$0, final List<TagLoader.EntryWithSource> $$1, final @Local TagLoader.EntryWithSource entry) {

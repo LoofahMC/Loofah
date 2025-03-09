@@ -64,14 +64,14 @@ public abstract class LevelChunkTicksMixin<T> implements LevelChunkTicksBridge<T
     @Inject(method = "scheduleUnchecked", at = @At("HEAD"))
     private void impl$onScheduleUnchecked(final ScheduledTick<T> $$0, final CallbackInfo ci) {
         final ServerLevel level = ((LevelTicksBridge<?>) this.impl$tickList).bridge$level();
-        final PhaseContext<?> context = PhaseTracker.getInstance().getPhaseContext();
+        final PhaseContext<?> context = PhaseTracker.getWorldInstance(level).getPhaseContext();
         context.associateScheduledTickUpdate(level, $$0);
         context.applyOwnerIfAvailable(owner -> ((CreatorTrackedBridge) (Object) $$0).tracker$setTrackedUUID(PlayerTracker.Type.CREATOR, owner));
         context.applyNotifierIfAvailable(notified -> ((CreatorTrackedBridge) (Object) $$0).tracker$setTrackedUUID(PlayerTracker.Type.NOTIFIER, notified));
         ((TickNextTickDataBridge<T>) (Object) $$0).bridge$createdByList(level, (LevelChunkTicks) (Object) this);
     }
 
-    @ModifyExpressionValue(method = "save(JLjava/util/function/Function;)Lnet/minecraft/nbt/ListTag;",
+    @ModifyExpressionValue(method = "pack(J)Ljava/util/List;",
         at = @At(value = "INVOKE", target = "Ljava/util/Queue;iterator()Ljava/util/Iterator;"))
     private Iterator<ScheduledTick<T>> impl$onSaveSkipCancelled(final Iterator<ScheduledTick<T>> original) {
         return Iterators.filter(original, t -> ((TickNextTickDataBridge<T>) (Object) t).bridge$internalState() != ScheduledUpdate.State.CANCELLED);

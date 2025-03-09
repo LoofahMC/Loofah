@@ -44,6 +44,7 @@ import net.minecraft.world.entity.animal.MushroomCow;
 import net.minecraft.world.entity.animal.Panda;
 import net.minecraft.world.entity.animal.Parrot;
 import net.minecraft.world.entity.animal.Rabbit;
+import net.minecraft.world.entity.animal.Salmon;
 import net.minecraft.world.entity.animal.TropicalFish;
 import net.minecraft.world.entity.animal.horse.Llama;
 import net.minecraft.world.entity.animal.horse.Markings;
@@ -54,12 +55,14 @@ import net.minecraft.world.entity.monster.SpellcasterIllager;
 import net.minecraft.world.entity.player.ChatVisiblity;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.entity.raid.Raid;
-import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.Rarity;
-import net.minecraft.world.item.Tiers;
+import net.minecraft.world.item.ToolMaterial;
 import net.minecraft.world.item.component.FireworkExplosion;
+import net.minecraft.world.item.equipment.ArmorMaterial;
+import net.minecraft.world.item.equipment.ArmorMaterials;
+import net.minecraft.world.level.Explosion;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.biome.Biome;
@@ -94,6 +97,8 @@ import net.minecraft.world.scores.Team;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 import net.minecraft.world.ticks.TickPriority;
 import org.spongepowered.api.ResourceKey;
+import org.spongepowered.api.data.type.ItemTier;
+import org.spongepowered.api.data.type.ItemTiers;
 import org.spongepowered.api.item.FireworkShape;
 import org.spongepowered.api.item.FireworkShapes;
 import org.spongepowered.api.registry.Registry;
@@ -142,7 +147,19 @@ public final class VanillaRegistryLoader {
             map.put(EnderDragonPhase.HOVERING, "hover");
         }, phase -> CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_UNDERSCORE, ((EnderDragonPhaseAccessor) phase).accessor$name()));
         this.holder.createRegistry(RegistryTypes.FIREWORK_SHAPE, VanillaRegistryLoader.fireworkShape());
+        final var materials = new HashMap<ArmorMaterial, String>();
+        materials.put(ArmorMaterials.LEATHER, ArmorMaterials.LEATHER.modelId().toString());
+        materials.put(ArmorMaterials.CHAINMAIL, ArmorMaterials.CHAINMAIL.modelId().toString());
+        materials.put(ArmorMaterials.IRON, ArmorMaterials.IRON.modelId().toString());
+        materials.put(ArmorMaterials.GOLD, ArmorMaterials.GOLD.modelId().toString());
+        materials.put(ArmorMaterials.DIAMOND, ArmorMaterials.DIAMOND.modelId().toString());
+        materials.put(ArmorMaterials.TURTLE_SCUTE, ResourceKey.minecraft("turtle").toString());
+        materials.put(ArmorMaterials.NETHERITE, ArmorMaterials.NETHERITE.modelId().toString());
+        materials.put(ArmorMaterials.ARMADILLO_SCUTE, ArmorMaterials.ARMADILLO_SCUTE.modelId().toString().replace("_scute", ""));
+
+        this.naming(RegistryTypes.ARMOR_MATERIAL, materials.keySet().toArray(new ArmorMaterial[]{}), materials);
         this.knownName(RegistryTypes.GAME_RULE, GameRulesAccessor.accessor$GAME_RULE_TYPES().keySet(), rule -> CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_UNDERSCORE, rule.getId()));
+        this.holder.createRegistry(RegistryTypes.ITEM_TIER, VanillaRegistryLoader.itemTier());
     }
 
     private void loadEnumRegistries() {
@@ -155,7 +172,6 @@ public final class VanillaRegistryLoader {
             map.put(AttributeModifier.Operation.ADD_MULTIPLIED_BASE, "multiply_base");
             map.put(AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL, "multiply_total");
         });
-        this.automaticName(RegistryTypes.BOAT_TYPE, Boat.Type.values());
         this.automaticName(RegistryTypes.CHEST_ATTACHMENT_TYPE, ChestType.values());
         this.automaticName(RegistryTypes.COLLISION_RULE, Team.CollisionRule.values());
         this.automaticName(RegistryTypes.COMPARATOR_MODE, ComparatorMode.values());
@@ -165,15 +181,14 @@ public final class VanillaRegistryLoader {
         this.automaticName(RegistryTypes.DRIPSTONE_SEGMENT, DripstoneThickness.values());
         this.automaticName(RegistryTypes.EQUIPMENT_GROUP, EquipmentSlot.Type.values());
         this.automaticName(RegistryTypes.EQUIPMENT_TYPE, EquipmentSlot.values());
-        this.automaticName(RegistryTypes.FOX_TYPE, Fox.Type.values());
+        this.automaticName(RegistryTypes.FOX_TYPE, Fox.Variant.values());
         this.automaticName(RegistryTypes.GAME_MODE, GameType.values());
         this.automaticName(RegistryTypes.HAND_PREFERENCE, HumanoidArm.values());
         this.automaticName(RegistryTypes.HAND_TYPE, InteractionHand.values());
         this.automaticName(RegistryTypes.INSTRUMENT_TYPE, NoteBlockInstrument.values());
         this.automaticName(RegistryTypes.ITEM_RARITY, Rarity.values());
-        this.automaticName(RegistryTypes.ITEM_TIER, Tiers.values());
         this.automaticName(RegistryTypes.JIGSAW_BLOCK_ORIENTATION, FrontAndTop.values());
-        this.automaticName(RegistryTypes.MOOSHROOM_TYPE, MushroomCow.MushroomType.values());
+        this.automaticName(RegistryTypes.MOOSHROOM_TYPE, MushroomCow.Variant.values());
         this.automaticName(RegistryTypes.OBJECTIVE_DISPLAY_MODE, ObjectiveCriteria.RenderType.values());
         this.automaticName(RegistryTypes.PANDA_GENE, Panda.Gene.values());
         this.automaticName(RegistryTypes.PHANTOM_PHASE, Phantom.AttackPhase.values());
@@ -196,13 +211,13 @@ public final class VanillaRegistryLoader {
         this.automaticName(RegistryTypes.WIRE_ATTACHMENT_TYPE, RedstoneSide.values());
         this.automaticName(RegistryTypes.ADVANCEMENT_TYPE, AdvancementType.values());
         this.automaticName(RegistryTypes.TROPICAL_FISH_SHAPE, TropicalFish.Pattern.values());
+        this.automaticName(RegistryTypes.SALMON_SIZE, Salmon.Variant.values());
         this.automaticName(RegistryTypes.HEIGHT_TYPE, Heightmap.Types.values());
         this.automaticName(RegistryTypes.ENTITY_CATEGORY, MobCategory.values());
         this.automaticName(RegistryTypes.WALL_CONNECTION_STATE, WallSide.values());
         this.automaticName(RegistryTypes.GRASS_COLOR_MODIFIER, BiomeSpecialEffects.GrassColorModifier.values());
         this.automaticName(RegistryTypes.PRECIPITATION, Biome.Precipitation.values());
         this.automaticName(RegistryTypes.TEMPERATURE_MODIFIER, Biome.TemperatureModifier.values());
-        this.automaticName(RegistryTypes.CARVING_STEP, GenerationStep.Carving.values());
         this.automaticName(RegistryTypes.DECORATION_STEP, GenerationStep.Decoration.values());
         this.automaticName(RegistryTypes.PARROT_TYPE, Parrot.Variant.values());
         this.automaticName(RegistryTypes.RABBIT_TYPE, Rabbit.Variant.values());
@@ -219,6 +234,7 @@ public final class VanillaRegistryLoader {
         this.automaticName(RegistryTypes.PUSH_REACTION, PushReaction.values());
         this.automaticName(RegistryTypes.TRIAL_SPAWNER_STATE, TrialSpawnerState.values());
         this.automaticName(RegistryTypes.VAULT_STATE, VaultState.values());
+        this.automaticName(RegistryTypes.EXPLOSION_BLOCK_INTERACTION, Explosion.BlockInteraction.values());
     }
 
     private static RegistryLoader<Criterion> criterion() {
@@ -247,6 +263,16 @@ public final class VanillaRegistryLoader {
         });
     }
 
+    private static RegistryLoader<ItemTier> itemTier() {
+        return RegistryLoader.of(l -> {
+            l.add(ItemTiers.DIAMOND, k -> (ItemTier) (Object) ToolMaterial.DIAMOND);
+            l.add(ItemTiers.GOLD, k -> (ItemTier) (Object) ToolMaterial.GOLD);
+            l.add(ItemTiers.IRON, k -> (ItemTier) (Object) ToolMaterial.IRON);
+            l.add(ItemTiers.NETHERITE, k -> (ItemTier) (Object) ToolMaterial.NETHERITE);
+            l.add(ItemTiers.STONE, k -> (ItemTier) (Object) ToolMaterial.STONE);
+            l.add(ItemTiers.WOOD, k -> (ItemTier) (Object) ToolMaterial.WOOD);
+        });
+    }
 
     // The following methods are named for clarity above.
 

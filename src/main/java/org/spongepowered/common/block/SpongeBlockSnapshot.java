@@ -177,7 +177,7 @@ public final class SpongeBlockSnapshot implements BlockSnapshot, SpongeImmutable
         final ServerLevel world = optionalWorld.get();
         // We need to deterministically define the context as nullable if we don't need to enter.
         // this way we guarantee an exit.
-        try (final PhaseContext<?> context = BlockPhase.State.RESTORING_BLOCKS.createPhaseContext(PhaseTracker.SERVER)) {
+        try (final PhaseContext<?> context = BlockPhase.State.RESTORING_BLOCKS.createPhaseContext(PhaseTracker.getWorldInstance(world))) {
             context.buildAndSwitch();
             final BlockPos pos = VecHelper.toBlockPos(this.pos);
             if (!world.isInWorldBounds(pos)) { // Invalid position. Inline this check
@@ -275,7 +275,7 @@ public final class SpongeBlockSnapshot implements BlockSnapshot, SpongeImmutable
 
         return Optional.of(SpongeBlockEntityArchetypeBuilder.pooled()
                 .state(this.state())
-                .blockEntity((BlockEntityType) SpongeCommon.vanillaRegistry(Registries.BLOCK_ENTITY_TYPE).get(ResourceLocation.tryParse(blockEntityId)))
+                .blockEntity((BlockEntityType) SpongeCommon.vanillaRegistry(Registries.BLOCK_ENTITY_TYPE).getOptional(ResourceLocation.tryParse(blockEntityId)).orElse(null))
                 .blockEntityData(NBTTranslator.INSTANCE.translate(compound))
                 .build());
     }

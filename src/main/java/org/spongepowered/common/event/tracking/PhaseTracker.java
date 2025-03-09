@@ -32,6 +32,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -89,7 +90,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class PhaseTracker implements CauseStackManager {
 
     public static final PhaseTracker CLIENT = new PhaseTracker();
-    public static final PhaseTracker SERVER = new PhaseTracker();
+    private static final PhaseTracker SERVER = new PhaseTracker();
     public static final Logger LOGGER = LogManager.getLogger(PhaseTracker.class);
     static final CopyOnWriteArrayList<net.minecraft.world.entity.Entity> ASYNC_CAPTURED_ENTITIES = new CopyOnWriteArrayList<>();
     private static final Map<Thread, PhaseTracker> SPINOFF_TRACKERS = new MapMaker().weakKeys().concurrencyLevel(8).makeMap();
@@ -117,6 +118,44 @@ public final class PhaseTracker implements CauseStackManager {
                 throw new RuntimeException("Unable to create a new PhaseTracker for Thread: " + thread, e);
             }
         });
+    }
+
+    /**
+     * The server phase tracker should be used for actions
+     * that are not tied to any specific {@link ServerLevel}.
+     *
+     * <p>For actions that are specific to a {@link ServerLevel},
+     * the {@link #getWorldInstance(ServerLevel)} should be
+     * preferred.</p>
+     *
+     * <p>For actions that could be performed inside a world
+     * generation thread, the {@link #getWorldInstance(LevelAccessor)}
+     * should be used instead.</p>
+     *
+     * <p>If the current world instance is unknown, the
+     * implementation can perform more expensive lookup
+     * using the parameterless {@link #getWorldInstance}.</p>
+     */
+    public static PhaseTracker getServerInstanceExplicitly() {
+        return PhaseTracker.SERVER;
+    }
+
+    public static PhaseTracker getWorldInstance() {
+        //This is reserved for a mod that wishes to implement
+        //multithreaded levels.
+        return PhaseTracker.SERVER;
+    }
+
+    public static PhaseTracker getWorldInstance(final LevelAccessor level) {
+        //This is reserved for a mod that wishes to implement
+        //multithreaded levels.
+        return PhaseTracker.SERVER;
+    }
+
+    public static PhaseTracker getWorldInstance(final ServerLevel level) {
+        //This is reserved for a mod that wishes to implement
+        //multithreaded levels.
+        return PhaseTracker.SERVER;
     }
 
     public static Block validateBlockForNeighborNotification(final ServerLevel worldServer, final BlockPos pos, @Nullable Block blockIn,
@@ -228,7 +267,7 @@ public final class PhaseTracker implements CauseStackManager {
     }
 
     public void init() {
-        if (this != PhaseTracker.SERVER) {
+        if (this == PhaseTracker.CLIENT) {
             return;
         }
         if (this.hasRun) {
@@ -299,14 +338,14 @@ public final class PhaseTracker implements CauseStackManager {
     // ----------------- SIMPLE GETTERS --------------------------------------
 
     public IPhaseState<?> getCurrentState() {
-        if (Thread.currentThread() != this.getSidedThread()) {
+        if (!this.onSidedThread()) {
             throw new UnsupportedOperationException("Cannot access the PhaseTracker off-thread, please use the respective PhaseTracker for their proper thread.");
         }
         return this.stack.peekState();
     }
 
     public PhaseContext<?> getPhaseContext() {
-        if (Thread.currentThread() != this.getSidedThread()) {
+        if (!this.onSidedThread()) {
             throw new UnsupportedOperationException("Cannot access the PhaseTracker off-thread, please use the respective PhaseTracker for their proper thread.");
         }
         return this.stack.peekContext();
@@ -319,7 +358,7 @@ public final class PhaseTracker implements CauseStackManager {
     // ----------------- STATE ACCESS ----------------------------------
 
     void switchToPhase(final IPhaseState<?> state, final PhaseContext<?> phaseContext) {
-        if (phaseContext.createdTracker != this && Thread.currentThread() != this.getSidedThread()) {
+        if (phaseContext.createdTracker != this && !this.onSidedThread()) {
             // lol no, report the block change properly
             new PrettyPrinter(60).add("Illegal Async PhaseTracker Access").centre().hr()
                     .addWrapped(PhasePrinter.ASYNC_TRACKER_ACCESS)
@@ -332,7 +371,7 @@ public final class PhaseTracker implements CauseStackManager {
         Objects.requireNonNull(state, "State cannot be null!");
         Objects.requireNonNull(phaseContext, "PhaseContext cannot be null!");
         Preconditions.checkArgument(phaseContext.isComplete(), "PhaseContext must be complete!");
-        if (this == PhaseTracker.SERVER && SpongeConfigs.getCommon().get().phaseTracker.verbose) {
+        if (this != PhaseTracker.CLIENT && SpongeConfigs.getCommon().get().phaseTracker.verbose) {
             if (this.stack.size() > 6) {
                 if (this.stack.checkForRunaways(state, phaseContext)) {
                     PhasePrinter.printRunawayPhase(this.stack, state, phaseContext);
@@ -349,7 +388,7 @@ public final class PhaseTracker implements CauseStackManager {
 
     @SuppressWarnings({"rawtypes", "unused", "try"})
     void completePhase(final PhaseContext<?> context) {
-        if (context.createdTracker != this && Thread.currentThread() != this.getSidedThread()) {
+        if (context.createdTracker != this && !this.onSidedThread()) {
             // lol no, report the block change properly
             new PrettyPrinter(60).add("Illegal Async PhaseTracker Access").centre().hr()
                 .addWrapped(PhasePrinter.ASYNC_TRACKER_ACCESS)
@@ -763,7 +802,7 @@ public final class PhaseTracker implements CauseStackManager {
 
     private void enforceMainThread() {
         // On clients, this may not be available immediately, we can't bomb out that early.
-        if (Thread.currentThread() != this.getSidedThread()) {
+        if (!this.onSidedThread()) {
             throw new IllegalStateException(String.format(
                 "CauseStackManager called from off main thread (current='%s', expected='%s')!",
                 ThreadUtil.getDescription(Thread.currentThread()),

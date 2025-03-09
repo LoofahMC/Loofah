@@ -46,7 +46,6 @@ import org.spongepowered.api.data.DataTransactionResult;
 import org.spongepowered.api.data.Key;
 import org.spongepowered.api.data.Keys;
 import org.spongepowered.api.data.meta.BannerPatternLayer;
-import org.spongepowered.api.data.type.ArmorMaterials;
 import org.spongepowered.api.data.type.AttachmentSurfaces;
 import org.spongepowered.api.data.type.BannerPatternShapes;
 import org.spongepowered.api.data.type.BoatTypes;
@@ -54,6 +53,7 @@ import org.spongepowered.api.data.type.BodyParts;
 import org.spongepowered.api.data.type.CatTypes;
 import org.spongepowered.api.data.type.DyeColors;
 import org.spongepowered.api.data.type.FoxTypes;
+import org.spongepowered.api.data.type.FrogTypes;
 import org.spongepowered.api.data.type.HandTypes;
 import org.spongepowered.api.data.type.HorseColors;
 import org.spongepowered.api.data.type.HorseStyles;
@@ -243,11 +243,11 @@ public final class DataTest  {
 
         this.checkOfferListData(goldenApple, Keys.APPLIED_ENCHANTMENTS, Arrays.asList(Enchantment.of(EnchantmentTypes.SHARPNESS, 5)));
         this.checkOfferListData(goldenApple, Keys.APPLIED_ENCHANTMENTS, Arrays.asList(Enchantment.of(EnchantmentTypes.PROTECTION, 4)));
-
-        this.checkGetData(ItemStack.of(ItemTypes.DIAMOND_LEGGINGS), Keys.ARMOR_MATERIAL, ArmorMaterials.DIAMOND.get());
-        this.checkGetData(ItemStack.of(ItemTypes.LEATHER_BOOTS), Keys.ARMOR_MATERIAL, ArmorMaterials.LEATHER.get());
-        this.checkGetData(ItemStack.of(ItemTypes.TURTLE_HELMET), Keys.ARMOR_MATERIAL, ArmorMaterials.TURTLE.get());
-
+//
+//        this.checkGetData(ItemStack.of(ItemTypes.DIAMOND_LEGGINGS), Keys.ARMOR_MATERIAL, ArmorMaterials.DIAMOND.get());
+//        this.checkGetData(ItemStack.of(ItemTypes.LEATHER_BOOTS), Keys.ARMOR_MATERIAL, ArmorMaterials.LEATHER.get());
+//        this.checkGetData(ItemStack.of(ItemTypes.TURTLE_HELMET), Keys.ARMOR_MATERIAL, ArmorMaterials.TURTLE.get());
+//
 //        final Entity painting = world.createEntity(EntityTypes.PAINTING.get(), position);
 //        this.checkGetData(painting, Keys.ART_TYPE, ArtTypes.KEBAB.get()); // TODO test offer (only works on valid painting)
 
@@ -375,7 +375,7 @@ public final class DataTest  {
         this.checkOfferData(ravager, Keys.CAN_JOIN_RAID, true);
         this.checkOfferData(ravager, Keys.CAN_JOIN_RAID, false);
 
-        final Entity boat = world.createEntity(EntityTypes.BOAT.get(), position);
+        final Entity boat = world.createEntity(EntityTypes.OAK_BOAT.get(), position);
         this.checkOfferData(boat, Keys.CAN_MOVE_ON_LAND, true);
         this.checkOfferData(boat, Keys.CAN_MOVE_ON_LAND, false);
 
@@ -550,7 +550,7 @@ public final class DataTest  {
         this.checkGetData(player, Keys.EXPERIENCE, 7);
         this.checkOfferData(player, Keys.EXPERIENCE_SINCE_LEVEL, 1);
 
-        this.checkOfferData(tntEntity, Keys.EXPLOSION_RADIUS, 1);
+        this.checkOfferData(tntEntity, Keys.EXPLOSION_RADIUS, 1f);
 
         this.checkGetData(player, Keys.EYE_HEIGHT, (double)1.62f);
         this.checkGetData(sheep, Keys.EYE_HEIGHT,  (double)(1.3f * 0.95f));
@@ -957,6 +957,10 @@ public final class DataTest  {
         this.checkGetData(obisidanState, Keys.IS_UNBREAKABLE, false);
         final BlockState bedrockState = BlockTypes.BEDROCK.get().defaultState();
         this.checkGetData(bedrockState, Keys.IS_UNBREAKABLE, true);
+
+        final Entity frog = world.createEntity(EntityTypes.FROG.get(), position);
+        this.checkOfferData(frog, Keys.FROG_TYPE, FrogTypes.WARM.get());
+        this.checkGetData(frog, Keys.FROG_TYPE, FrogTypes.WARM.get());
 
 //        this.checkOfferData(panda, Keys.IS_UNHAPPY, true);
 
@@ -1367,10 +1371,10 @@ public final class DataTest  {
 
         final ItemStack stack = ItemStack.builder()
             .itemType(ItemTypes.NETHERITE_CHESTPLATE)
-            .add(Keys.ARMOR_TRIM, ArmorTrim.of(TrimMaterials.DIAMOND.get(), TrimPatterns.SPIRE.get()))
+            .add(Keys.ARMOR_TRIM, ArmorTrim.of(TrimMaterials.DIAMOND, TrimPatterns.SPIRE))
             .build();
-        this.checkGetData(stack, Keys.ARMOR_TRIM, ArmorTrim.of(TrimMaterials.DIAMOND.get(), TrimPatterns.SPIRE.get()));
-        this.checkOfferData(stack, Keys.ARMOR_TRIM, ArmorTrim.of(TrimMaterials.EMERALD.get(), TrimPatterns.WAYFINDER.get()));
+        this.checkGetData(stack, Keys.ARMOR_TRIM, ArmorTrim.of(TrimMaterials.DIAMOND, TrimPatterns.SPIRE));
+        this.checkOfferData(stack, Keys.ARMOR_TRIM, ArmorTrim.of(TrimMaterials.EMERALD, TrimPatterns.WAYFINDER));
         player.inventory().offer(stack);
     }
 
