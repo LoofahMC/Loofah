@@ -64,6 +64,6 @@ public abstract class ServerboundCustomQueryAnswerPacketMixin {
     private static void impl$onReadUnknownPayload(final FriendlyByteBuf $$0, final CallbackInfoReturnable<CustomQueryAnswerPayload> cir) {
         final var payload = $$0.readNullable(buf -> new FriendlyByteBuf(buf.readBytes(buf.readableBytes())));
 
-        cir.setReturnValue(SpongeChannelAnswerPayload.bufferOnly(payload == null ? null : buf -> buf.writeBytes(payload, payload.readerIndex(), payload.readableBytes())));
+        cir.setReturnValue(SpongeChannelPayload.bufferOnly(payload == null ? null : buf -> buf.writeBytes(payload, payload.readerIndex(), payload.readableBytes())));
     }*/
 }

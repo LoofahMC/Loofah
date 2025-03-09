@@ -425,7 +425,7 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
     //  of @Share and @WrapWithCondition
     @Unique private boolean impl$local$isManualSave;
     @Unique private Cause impl$local$saveEventCause;
-    @Unique private PrimaryLevelData impl$local$levelData;
+    @Unique private ServerLevelData impl$local$levelData;
     @Unique private SerializationBehavior impl$local$serializationBehavior;
 
     @Inject(
@@ -442,8 +442,8 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
             ci.cancel();
         }
 
-        this.impl$local$levelData = (PrimaryLevelData) this.shadow$getLevelData();
-        this.impl$local$serializationBehavior = ((PrimaryLevelDataBridge) this.impl$local$levelData).bridge$serializationBehavior().orElse(SerializationBehavior.AUTOMATIC);
+        this.impl$local$levelData = (ServerLevelData) this.shadow$getLevelData();
+        this.impl$local$serializationBehavior = ((ServerLevelDataBridge) this.impl$local$levelData).bridge$serializationBehavior().orElse(SerializationBehavior.AUTOMATIC);
     }
 
     @Inject(
@@ -461,19 +461,21 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
         at = @At("TAIL")
     )
     private void impl$saveSpongeLevelData(CallbackInfo ci) {
-        final PrimaryLevelData levelData = (PrimaryLevelData) this.shadow$getLevelData();
+        final ServerLevelData levelData = (ServerLevelData) this.shadow$getLevelData();
         levelData.setWorldBorder(this.getWorldBorder().createSettings());
 
-        levelData.setCustomBossEvents(this.bridge$getBossBarManager().save(SpongeCommon.server().registryAccess()));
+        if (levelData instanceof WorldData worldData) {
+            worldData.setCustomBossEvents(this.bridge$getBossBarManager().save(SpongeCommon.server().registryAccess()));
 
-        this.bridge$getLevelSave()
-            .saveDataTag(
-                SpongeCommon.server().registryAccess(),
-                levelData,
-                this.shadow$dimension() == Level.OVERWORLD
-                    ? SpongeCommon.server().getPlayerList().getSingleplayerData()
-                    : null
-            );
+            this.bridge$getLevelSave()
+                .saveDataTag(
+                    SpongeCommon.server().registryAccess(),
+                    worldData,
+                    this.shadow$dimension() == Level.OVERWORLD
+                        ? SpongeCommon.server().getPlayerList().getSingleplayerData()
+                        : null
+                );
+        }
     }
 
     @Redirect(
