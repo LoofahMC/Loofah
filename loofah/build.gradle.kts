@@ -92,6 +92,8 @@ val fabricLaunch by sourceSets.register("launch") {
 val fabricAccessors by sourceSets.register("accessors") {
     spongeImpl.addDependencyToImplementation(accessors, this)
 
+    spongeImpl.addDependencyToImplementation(this, fabricMain)
+
     configurations.named(implementationConfigurationName) {
         extendsFrom(gameManagedLibraries)
         extendsFrom(fabricLibrariesConfig)
@@ -145,6 +147,7 @@ loom {
     mods {
         register("loofah") {
             sourceSet(fabricMixins)
+            sourceSet(fabricAccessors)
             sourceSet(fabricAppLaunch)
             sourceSet(fabricLaunch)
             sourceSet(fabricMain)
@@ -299,6 +302,7 @@ tasks {
         from(commonProject.sourceSets.named("main").map {it.output })
 
         from(fabricMixins.output)
+        from(fabricAccessors.output)
         from(fabricAppLaunch.output)
         from(fabricLaunch.output)
         from(fabricMain.output)
