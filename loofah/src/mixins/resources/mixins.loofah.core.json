@@ -36,7 +36,7 @@
     "world.level.ServerExplosionMixin_Fabric",
     "world.level.block.FireBlockMixin_Fabric",
     "world.level.block.entity.AbstractFurnaceBlockEntityMixin_Fabric",
-    "world.level.storage.LevelStorageSourceMixin_Vanilla"
+    "world.level.storage.LevelStorageSourceMixin_Fabric"
   ],
   "overwrites": {
     "conformVisibility": true
