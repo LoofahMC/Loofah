@@ -15,6 +15,9 @@ dependencies {
     implementation("gradle.plugin.org.jetbrains.gradle.plugin.idea-ext:gradle-idea-ext:${apiLibs.versions.ideaExt.get()}")
     implementation(libs.at)
     implementation(libs.accessWidener)
+
+    // loom is used by Loofah but must be declared here to avoid a classloader conflict with its transitive dependencies
+    api("net.fabricmc:fabric-loom:1.9.2")
 }
 
 indraSpotlessLicenser {
