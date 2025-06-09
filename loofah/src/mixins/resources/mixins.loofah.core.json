@@ -13,6 +13,7 @@
     "CrashReportMixin_Fabric",
     "brigdadier.exceptions.CommandSyntaxExceptionMixin_Fabric",
     "commands.CommandsMixin_Fabric",
+    "commands.arguments.selector.EntitySelectorMixin_Fabric",
     "fabricmc.fabric.impl.networking.server.ServerLoginNetworkAddonMixin",
     "fabricmc.fabric.impl.registry.sync.RegistrySyncManagerMixin",
     "network.ConnectionMixin_Fabric",

@@ -22,15 +22,30 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dk.nelind.loofah.mixin.superclasschange.api.entity.ai.goal;
+package dk.nelind.loofah.mixin.core.commands.arguments.selector;
 
-import dk.nelind.loofah.mixin.plugin.FabricSuperclassChangePlugin.ChangeSuperclass;
-import net.minecraft.world.entity.ai.goal.Goal;
-import org.spongepowered.api.entity.ai.goal.AbstractGoal;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.arguments.selector.EntitySelector;
+import net.minecraft.commands.arguments.selector.EntitySelectorParser;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
 
-@ChangeSuperclass(Goal.class)
-@Mixin(AbstractGoal.class)
-public class AbstractGoalMixin_SuperClassChange {
-
+/** Copied from {@link org.spongepowered.vanilla.mixin.core.commands.arguments.selector.EntitySelectorMixin_Vanilla}*/
+@Mixin(EntitySelector.class)
+public abstract class EntitySelectorMixin_Fabric {
+    @WrapOperation(
+        method = "checkPermissions",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/commands/CommandSourceStack;hasPermission(I)Z"
+        )
+    )
+    private boolean fabric$onCheckSelectorPermission(final CommandSourceStack instance, final int $$0, final Operation<Boolean> original) {
+        if (EntitySelectorParser.allowSelectors(instance)) {
+            return true;
+        }
+        return original.call(instance, $$0);
+    }
 }
