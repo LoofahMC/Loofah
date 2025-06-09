@@ -26,20 +26,19 @@ package org.spongepowered.vanilla.applaunch.plugin.resource;
 
 import cpw.mods.jarhandling.JarMetadata;
 import cpw.mods.jarhandling.SecureJar;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.spongepowered.plugin.metadata.PluginMetadata;
 
 import java.lang.module.ModuleDescriptor;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 
 public class PluginJarMetadata implements JarMetadata {
     private final SecureJar jar;
     private final Path[] paths;
 
     private boolean initialized = false;
-    private PluginMetadata plugin;
-    private JarMetadata fallback;
-
-    private String name;
     private ModuleDescriptor descriptor;
 
     public PluginJarMetadata(final SecureJar jar, final Path[] paths) {
@@ -53,11 +52,18 @@ public class PluginJarMetadata implements JarMetadata {
         }
         this.initialized = true;
         if (plugin == null) {
-            this.fallback = JarMetadata.from(this.jar, this.paths);
-            this.name = this.fallback.name();
+            if (this.jar.moduleDataProvider().findFile("module-info.class").isEmpty()
+                && Arrays.stream(this.paths).allMatch(Files::isDirectory)) {
+                this.descriptor = PluginJarMetadata.createDescriptor(this.jar, this.jar.getPackages()
+                    .stream()
+                    .sorted()
+                    .findFirst()
+                    .orElseThrow(), null);
+            } else {
+                this.descriptor = JarMetadata.from(this.jar, this.paths).descriptor();
+            }
         } else {
-            this.plugin = plugin;
-            this.name = this.plugin.id().replace('-', '_');
+            this.descriptor = PluginJarMetadata.createDescriptor(this.jar, plugin.id().replace('-', '_'), plugin.version().toString());
         }
     }
 
@@ -69,34 +75,31 @@ public class PluginJarMetadata implements JarMetadata {
 
     @Override
     public String name() {
-        checkInitialized();
-        return this.name;
+        this.checkInitialized();
+        return this.descriptor.name();
     }
 
     @Override
     public String version() {
-        checkInitialized();
-        if (this.plugin == null) {
-            return this.fallback.version();
-        }
-        return this.plugin.version().toString();
+        this.checkInitialized();
+        return this.descriptor.rawVersion().orElse(null);
     }
 
     @Override
     public ModuleDescriptor descriptor() {
-        checkInitialized();
-        if (this.plugin == null) {
-            return this.fallback.descriptor();
-        }
-        if (this.descriptor == null) {
-            ModuleDescriptor.Builder builder = ModuleDescriptor.newAutomaticModule(name())
-                    .version(version())
-                    .packages(this.jar.getPackages());
-            this.jar.getProviders().stream()
-                    .filter(p -> !p.providers().isEmpty())
-                    .forEach(p -> builder.provides(p.serviceName(), p.providers()));
-            this.descriptor = builder.build();
-        }
+        this.checkInitialized();
         return this.descriptor;
+    }
+
+    private static ModuleDescriptor createDescriptor(final SecureJar jar, final String name, final @Nullable String version) {
+        final ModuleDescriptor.Builder builder = ModuleDescriptor.newAutomaticModule(name)
+            .packages(jar.getPackages());
+        if (version != null) {
+            builder.version(version);
+        }
+        jar.getProviders().stream()
+            .filter(p -> !p.providers().isEmpty())
+            .forEach(p -> builder.provides(p.serviceName(), p.providers()));
+        return builder.build();
     }
 }

@@ -29,6 +29,7 @@ import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.kyori.adventure.resource.ResourcePackRequest;
+import net.minecraft.Util;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryAccess;
@@ -37,11 +38,15 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.obfuscate.DontObfuscate;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.ServerFunctionManager;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.progress.ChunkProgressListener;
 import net.minecraft.server.packs.repository.PackRepository;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.server.packs.resources.SimpleReloadInstance;
 import net.minecraft.server.players.GameProfileCache;
 import net.minecraft.server.players.PlayerList;
+import net.minecraft.util.Unit;
 import net.minecraft.util.thread.BlockableEventLoop;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.level.Level;
@@ -80,6 +85,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 import org.spongepowered.common.SpongeCommon;
 import org.spongepowered.common.SpongeServer;
+import org.spongepowered.common.accessor.server.ServerFunctionManagerAccessor;
 import org.spongepowered.common.applaunch.config.core.SpongeConfigs;
 import org.spongepowered.common.bridge.commands.CommandSourceBridge;
 import org.spongepowered.common.bridge.commands.CommandSourceProviderBridge;
@@ -116,6 +122,7 @@ public abstract class MinecraftServerMixin implements SpongeServer, MinecraftSer
     @Shadow private int tickCount;
     @Shadow @Final protected LevelStorageSource.LevelStorageAccess storageSource;
     @Shadow @Final private Thread serverThread;
+    @Shadow @Final private ServerFunctionManager functionManager;
 
     @Shadow public abstract CommandSourceStack shadow$createCommandSourceStack();
     @Shadow public abstract Iterable<ServerLevel> shadow$getAllLevels();
@@ -129,6 +136,7 @@ public abstract class MinecraftServerMixin implements SpongeServer, MinecraftSer
     @Shadow public abstract WorldData shadow$getWorldData();
     @Shadow public abstract boolean shadow$haveTime();
     @Shadow private volatile boolean isSaving;
+    @Shadow public abstract ResourceManager shadow$getResourceManager();
     // @formatter:on
 
     private final ChatDecorator impl$spongeDecorator = new SpongeChatDecorator();
@@ -417,6 +425,10 @@ public abstract class MinecraftServerMixin implements SpongeServer, MinecraftSer
         if (this.impl$serviceProvider == null) {
             this.impl$serviceProvider = new SpongeServerScopedServiceProvider(this, game, injector);
             this.impl$serviceProvider.init();
+
+            Util.blockUntilDone(e ->
+                SimpleReloadInstance.create(this.shadow$getResourceManager(), List.of(((ServerFunctionManagerAccessor) this.functionManager).accessor$library()),
+                    Util.backgroundExecutor(), e, CompletableFuture.completedFuture(Unit.INSTANCE), MinecraftServerMixin.LOGGER.isDebugEnabled()).done());
         }
     }
 

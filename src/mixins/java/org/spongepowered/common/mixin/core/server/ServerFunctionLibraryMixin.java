@@ -22,24 +22,28 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.spongepowered.common.mixin.api.minecraft.world.entity;
+package org.spongepowered.common.mixin.core.server;
 
-import net.kyori.adventure.text.Component;
-import net.minecraft.world.entity.HumanoidArm;
-import org.spongepowered.api.data.type.HandPreference;
-import org.spongepowered.asm.mixin.Final;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import net.minecraft.server.ServerFunctionLibrary;
+import net.minecraft.server.packs.resources.PreparableReloadListener;
+import net.minecraft.server.packs.resources.ResourceManager;
+import org.spongepowered.api.Sponge;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 
-@Mixin(HumanoidArm.class)
-public abstract class HumanoidArmMixin_API implements HandPreference {
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
-    // @formatter:off
-    @Shadow @Final private String translationKey;
-    // @formatter:on
+@Mixin(ServerFunctionLibrary.class)
+public abstract class ServerFunctionLibraryMixin {
 
-    @Override
-    public Component asComponent() {
-        return Component.translatable(this.translationKey);
+    @WrapMethod(method = "reload")
+    private CompletableFuture<Void> impl$onReload(final PreparableReloadListener.PreparationBarrier barrier, final ResourceManager manager,
+                                                  final Executor executor1, final Executor executor2, final Operation<CompletableFuture<Void>> original) {
+        if (Sponge.isServerAvailable()) {
+            return original.call(barrier, manager, executor1, executor2);
+        }
+        return barrier.wait(null);
     }
 }

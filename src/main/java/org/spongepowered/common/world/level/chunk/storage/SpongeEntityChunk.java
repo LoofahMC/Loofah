@@ -24,7 +24,6 @@
  */
 package org.spongepowered.common.world.level.chunk.storage;
 
-import com.google.common.collect.ImmutableList;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Tuple;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -48,25 +47,24 @@ import org.spongepowered.math.vector.Vector3i;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public final class SpongeEntityChunk implements EntityChunk {
 
     private final ServerLevel level;
     private final Vector3i chunkPosition;
-    private final Stream<net.minecraft.world.entity.Entity> entities;
+    private final List<net.minecraft.world.entity.Entity> entities;
 
     private @MonotonicNonNull SpongeChunkLayout chunkLayout;
     private @MonotonicNonNull Vector3i blockMin;
     private @MonotonicNonNull Vector3i blockMax;
-    private @MonotonicNonNull List<net.minecraft.world.entity.Entity> newEntities;
 
-    public SpongeEntityChunk(final ServerLevel level, final Vector3i chunkPosition, final Stream<net.minecraft.world.entity.Entity> entities) {
+    public SpongeEntityChunk(final ServerLevel level, final Vector3i chunkPosition, final List<net.minecraft.world.entity.Entity> entities) {
         this.level = level;
         this.chunkPosition = chunkPosition;
         this.entities = entities;
@@ -106,23 +104,23 @@ public final class SpongeEntityChunk implements EntityChunk {
 
     @Override
     public Collection<? extends Player> players() {
-        return this.entities.filter(Player.class::isInstance).map(Player.class::cast).toList();
+        return this.entities.stream().filter(Player.class::isInstance).map(Player.class::cast).toList();
     }
 
     @Override
     public Optional<Entity> entity(final UUID uuid) {
-        return this.entities.filter(e -> e.getUUID().equals(uuid)).map(Entity.class::cast).findFirst();
+        return this.entities.stream().filter(e -> e.getUUID().equals(uuid)).map(Entity.class::cast).findFirst();
     }
 
     @Override
     public Collection<? extends Entity> entities() {
-        return this.entities.map(Entity.class::cast).toList();
+        return this.entities.stream().map(Entity.class::cast).toList();
     }
 
     @Override
     public <T extends Entity> Collection<? extends T> entities(final Class<? extends T> entityClass, final AABB box, final @Nullable Predicate<? super T> predicate) {
         final net.minecraft.world.phys.AABB mcAabb = VecHelper.toMinecraftAABB(box);
-        return this.entities
+        return this.entities.stream()
                 .filter(e -> entityClass.isInstance(e) && e.getBoundingBox().intersects(mcAabb))
                 .map(entityClass::cast)
                 .filter(e -> predicate.test(e))
@@ -132,7 +130,7 @@ public final class SpongeEntityChunk implements EntityChunk {
     @Override
     public Collection<? extends Entity> entities(final AABB box, final Predicate<? super Entity> filter) {
         final net.minecraft.world.phys.AABB mcAabb = VecHelper.toMinecraftAABB(box);
-        return this.entities.map(Entity.class::cast)
+        return this.entities.stream().map(Entity.class::cast)
                 .filter(e -> ((net.minecraft.world.entity.Entity) e).getBoundingBox().intersects(mcAabb) && filter.test(e))
                 .toList();
     }
@@ -156,7 +154,7 @@ public final class SpongeEntityChunk implements EntityChunk {
                 this,
                 this,
                 // Entity Accessor
-                (chunk) -> chunk.entities.filter(entity -> VecHelper.inBounds(entity.blockPosition(), min, max))
+                (chunk) -> chunk.entities.stream().filter(entity -> VecHelper.inBounds(entity.blockPosition(), min, max))
                         .map(entity -> new AbstractMap.SimpleEntry<>(entity.blockPosition(), entity)),
                 // Entity Identity Function
                 VolumeStreamUtils.getOrCloneEntityWithVolume(shouldCarbonCopy, backingVolume, this.level),
@@ -200,10 +198,7 @@ public final class SpongeEntityChunk implements EntityChunk {
 
     @Override
     public boolean spawnEntity(final Entity entity) {
-        if (this.newEntities == null) {
-            this.newEntities = new ArrayList<>();
-        }
-        this.newEntities.add((net.minecraft.world.entity.Entity) entity);
+        this.entities.add((net.minecraft.world.entity.Entity) entity);
         return true;
     }
 
@@ -217,17 +212,31 @@ public final class SpongeEntityChunk implements EntityChunk {
         return list;
     }
 
+    @Override
+    public void filterEntities(final Predicate<? super Entity> predicate) {
+        this.entities.removeIf(e -> !predicate.test((Entity) e));
+    }
+
+    @Override
+    public void filterEntities(final AABB box, final Predicate<? super Entity> predicate) {
+        final net.minecraft.world.phys.AABB mcAabb = VecHelper.toMinecraftAABB(box);
+        this.entities.removeIf(e -> e.getBoundingBox().intersects(mcAabb) && !predicate.test((Entity) e));
+    }
+
+    @Override
+    public <T extends Entity> void filterEntities(final Class<? extends T> entityClass, final AABB box, final @Nullable Predicate<? super T> predicate) {
+        final net.minecraft.world.phys.AABB mcAabb = VecHelper.toMinecraftAABB(box);
+        this.entities.removeIf(e -> entityClass.isInstance(e) && e.getBoundingBox().intersects(mcAabb)
+            && (predicate == null || !predicate.test(entityClass.cast(e))));
+    }
+
     private void checkPositionInChunk(final Vector3d position) {
         if (!VecHelper.inBounds(position, this.min(), this.max())) {
             throw new IllegalArgumentException("Supplied bounds are not within this chunk.");
         }
     }
 
-    public @Nullable List<net.minecraft.world.entity.Entity> buildIfChanged() {
-        if (this.newEntities == null) {
-            return null;
-        }
-
-        return Stream.concat(this.entities, this.newEntities.stream()).collect(ImmutableList.toImmutableList());
+    public List<net.minecraft.world.entity.Entity> build() {
+        return Collections.unmodifiableList(this.entities);
     }
 }

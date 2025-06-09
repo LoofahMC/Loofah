@@ -22,35 +22,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.spongepowered.common.mixin.core.client.multiplayer;
+package org.spongepowered.vanilla.mixin.core.commands.arguments.selector;
 
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.multiplayer.ClientPacketListener;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.core.Holder;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.level.dimension.DimensionType;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.arguments.selector.EntitySelector;
+import net.minecraft.commands.arguments.selector.EntitySelectorParser;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.common.mixin.core.world.level.LevelMixin;
 
-import java.util.function.Supplier;
+@Mixin(EntitySelector.class)
+public abstract class EntitySelectorMixin_Vanilla {
 
-@Mixin(ClientLevel.class)
-public abstract class ClientLevelMixin extends LevelMixin {
-
-    @Inject(method = "<init>", at = @At("TAIL"))
-    private void impl$onInit(final ClientPacketListener $$0, final ClientLevel.ClientLevelData $$1, final ResourceKey<?> $$2, final Holder<DimensionType> $$3,
-            final int $$4, final int $$5, final Supplier<?> $$6, final LevelRenderer $$7, final boolean $$8, final long $$9, final CallbackInfo ci) {
-        this.bridge$adjustDimensionLogic($$3.value());
-    }
-
-    @Override
-    public void bridge$adjustDimensionLogic(final DimensionType dimensionType) {
-        super.bridge$adjustDimensionLogic(dimensionType);
-
-        this.shadow$updateSkyBrightness();
+    @WrapOperation(method = "checkPermissions", at = @At(value = "INVOKE", target = "Lnet/minecraft/commands/CommandSourceStack;hasPermission(I)Z"))
+    private boolean vanilla$onCheckSelectorPermission(final CommandSourceStack instance, final int $$0, final Operation<Boolean> original) {
+        if (EntitySelectorParser.allowSelectors(instance)) {
+            return true;
+        }
+        return original.call(instance, $$0);
     }
 }

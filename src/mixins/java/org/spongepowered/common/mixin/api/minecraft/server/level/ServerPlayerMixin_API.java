@@ -62,6 +62,7 @@ import org.spongepowered.api.event.Cause;
 import org.spongepowered.api.event.SpongeEventFactory;
 import org.spongepowered.api.event.message.PlayerChatEvent;
 import org.spongepowered.api.event.world.ChangeWorldBorderEvent;
+import org.spongepowered.api.network.ServerConnectionState;
 import org.spongepowered.api.network.ServerSideConnection;
 import org.spongepowered.api.profile.GameProfile;
 import org.spongepowered.api.scoreboard.Scoreboard;
@@ -143,6 +144,11 @@ public abstract class ServerPlayerMixin_API extends PlayerMixin_API implements S
     public ServerSideConnection connection() {
         final Connection connection = ((ServerCommonPacketListenerImplAccessor) this.connection).accessor$connection();
         return (ServerSideConnection) ((ConnectionBridge) connection).bridge$getEngineConnection();
+    }
+
+    @Override
+    public ServerConnectionState.Game connectionState() {
+        return (ServerConnectionState.Game) this.connection;
     }
 
     /**

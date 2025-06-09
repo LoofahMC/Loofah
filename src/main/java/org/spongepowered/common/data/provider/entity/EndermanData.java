@@ -25,6 +25,7 @@
 package org.spongepowered.common.data.provider.entity;
 
 import net.minecraft.world.entity.monster.EnderMan;
+import org.spongepowered.api.block.BlockState;
 import org.spongepowered.api.data.Keys;
 import org.spongepowered.common.accessor.world.entity.monster.EnderManAccessor;
 import org.spongepowered.common.data.provider.DataProviderRegistrator;
@@ -40,7 +41,12 @@ public final class EndermanData {
                 .asMutable(EnderMan.class)
                     .create(Keys.IS_SCREAMING)
                         .get(EnderMan::isCreepy)
-                        .set((h, v) -> h.getEntityData().set(EnderManAccessor.accessor$DATA_CREEPY(), v));
+                        .set((h, v) -> h.getEntityData().set(EnderManAccessor.accessor$DATA_CREEPY(), v))
+                    .create(Keys.BLOCK_STATE)
+                        .get(h -> (BlockState) h.getCarriedBlock())
+                        .set((h, v) -> h.setCarriedBlock((net.minecraft.world.level.block.state.BlockState) v))
+                        .delete(h -> h.setCarriedBlock(null));
+        ;
     }
     // @formatter:on
 }

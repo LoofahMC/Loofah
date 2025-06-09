@@ -59,6 +59,7 @@ import net.minecraft.world.level.LevelSettings;
 import net.minecraft.world.level.WorldDataConfiguration;
 import net.minecraft.world.level.biome.BiomeManager;
 import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.chunk.storage.IOWorker;
 import net.minecraft.world.level.dimension.BuiltinDimensionTypes;
 import net.minecraft.world.level.dimension.LevelStem;
 import net.minecraft.world.level.levelgen.DebugLevelSource;
@@ -363,12 +364,7 @@ public class SpongeWorldManager implements WorldManager {
             return CompletableFuture.completedFuture(false);
         }
 
-        try {
-            this.unloadWorld0((ServerLevel) world);
-            return CompletableFuture.completedFuture(true);
-        } catch (final IOException e) {
-            return FutureUtil.completedWithException(e);
-        }
+        return this.unloadWorld0((ServerLevel) world);
     }
 
     @Override
@@ -562,13 +558,13 @@ public class SpongeWorldManager implements WorldManager {
 
         final ServerLevel loadedWorld = this.worlds.get(registryKey);
         if (loadedWorld != null) {
-            try {
-                this.unloadWorld0(loadedWorld);
-            } catch (final IOException e) {
-                return FutureUtil.completedWithException(e);
-            }
+            return this.unloadWorld0(loadedWorld).thenCompose($ -> this.moveWorld0(key, movedKey));
         }
 
+        return this.moveWorld0(key, movedKey);
+    }
+
+    private CompletableFuture<Boolean> moveWorld0(final ResourceKey key, final ResourceKey movedKey) {
         return CompletableFuture.runAsync(() -> {
             final Path originalDirectory = this.getDirectory(key);
             final Path movedDirectory = this.getDirectory(movedKey);
@@ -617,13 +613,20 @@ public class SpongeWorldManager implements WorldManager {
             final boolean disableLevelSaving = loadedWorld.noSave;
             loadedWorld.noSave = true;
             ((IOWorkerBridge) loadedWorld.getChunkSource().chunkMap.chunkScanner()).bridge$forciblyClear();
-            try {
-                this.unloadWorld0(loadedWorld);
-            } catch (final IOException e) {
-                loadedWorld.noSave = disableLevelSaving;
-                return FutureUtil.completedWithException(e);
-            }
+            return this.unloadWorld0(loadedWorld)
+                .thenCompose($ -> this.deleteWorld0(key))
+                .whenComplete(($, e) -> {
+                    if (e != null) {
+                        loadedWorld.noSave = disableLevelSaving;
+                    }
+                });
         }
+
+        return this.deleteWorld0(key);
+    }
+
+    private CompletableFuture<Boolean> deleteWorld0(final ResourceKey key) {
+        final net.minecraft.resources.ResourceKey<Level> registryKey = SpongeWorldManager.createRegistryKey(key);
 
         return CompletableFuture.runAsync(() -> {
             final Path directory = this.getDirectory(key);
@@ -669,38 +672,52 @@ public class SpongeWorldManager implements WorldManager {
         return this.server().dataPackManager().findPack(DataPackTypes.WORLD, key).orElse(DataPacks.WORLD);
     }
 
-    private void unloadWorld0(final ServerLevel level) throws IOException {
+    private CompletableFuture<Boolean> unloadWorld0(final ServerLevel level) {
         final net.minecraft.resources.ResourceKey<Level> registryKey = level.dimension();
 
         if (!level.getPlayers(p -> true).isEmpty()) {
-            throw new IOException(String.format("World '%s' was told to unload but players remain.", registryKey.location()));
+            return CompletableFuture.failedFuture(new IOException(String.format("World '%s' was told to unload but players remain.", registryKey.location())));
         }
 
-        SpongeCommon.logger().info("Unloading world '{}'", registryKey.location());
+        // We first tell the world to save without flushing
+        // and wait for the callback when I/O queue is empty.
+        level.save(null, false, level.noSave);
 
-        final UnloadWorldEvent unloadWorldEvent = SpongeEventFactory.createUnloadWorldEvent(PhaseTracker.getInstance().currentCause(), (ServerWorld) level);
-        SpongeCommon.post(unloadWorldEvent);
+        return ((IOWorker) level.getChunkSource().chunkMap.chunkScanner()).synchronize(true).thenComposeAsync($ -> {
+            if (!level.getPlayers(p -> true).isEmpty()) {
+                return CompletableFuture.failedFuture(new IOException(String.format("World '%s' was told to unload but players remain.", registryKey.location())));
+            }
 
-        final int lastSpawnChunkRadius = ((ServerLevelAccessor) level).accessor$lastSpawnChunkRadius();
-        if (lastSpawnChunkRadius > 1) {
-            level.getChunkSource().removeRegionTicket(TicketType.START, new ChunkPos(level.getSharedSpawnPos()), lastSpawnChunkRadius, Unit.INSTANCE);
-            ((ServerLevelAccessor) level).accessor$setLastSpawnChunkRadius(1);
-        }
+            SpongeCommon.logger().info("Unloading world '{}'", registryKey.location());
 
-        final var configAdapter = ((ServerLevelDataBridge) level.getLevelData()).bridge$spongeData().configAdapter();
-        if (configAdapter != null) {
-            configAdapter.save();
-        }
+            final UnloadWorldEvent unloadWorldEvent = SpongeEventFactory.createUnloadWorldEvent(PhaseTracker.getInstance().currentCause(), (ServerWorld) level);
+            SpongeCommon.post(unloadWorldEvent);
 
-        try {
-            level.save(null, true, level.noSave);
-            level.close();
-            ((ServerLevelBridge) level).bridge$getLevelSave().close();
-        } catch (final Exception ex) {
-            throw new IOException(ex);
-        }
+            PlatformHooks.INSTANCE.getWorldHooks().preUnloadWorld(level);
 
-        this.worlds.remove(registryKey);
+            final int lastSpawnChunkRadius = ((ServerLevelAccessor) level).accessor$lastSpawnChunkRadius();
+            if (lastSpawnChunkRadius > 1) {
+                level.getChunkSource().removeRegionTicket(TicketType.START, new ChunkPos(level.getSharedSpawnPos()), lastSpawnChunkRadius, Unit.INSTANCE);
+                ((ServerLevelAccessor) level).accessor$setLastSpawnChunkRadius(1);
+            }
+
+            final var configAdapter = ((ServerLevelDataBridge) level.getLevelData()).bridge$spongeData().configAdapter();
+            if (configAdapter != null) {
+                configAdapter.save();
+            }
+
+            try {
+                level.save(null, true, level.noSave);
+                level.close();
+                ((ServerLevelBridge) level).bridge$getLevelSave().close();
+            } catch (final Exception ex) {
+                return CompletableFuture.failedFuture(new IOException(ex));
+            }
+
+            this.worlds.remove(registryKey);
+
+            return CompletableFuture.completedFuture(true);
+        }, SpongeCommon.server());
     }
 
     public void createNonDefaultLevels() {

@@ -51,6 +51,7 @@ final class CommandState extends GeneralState<CommandPhaseContext> {
     private final BiConsumer<CauseStackManager.StackFrame, CommandPhaseContext> COMMAND_MODIFIER = super.getFrameModifier()
         .andThen((frame, ctx) -> {
             if (ctx.commandMapping != null) {
+                ctx.commandMapping.plugin().ifPresent(frame::pushCause);
                 frame.pushCause(ctx.commandMapping);
             }
         });

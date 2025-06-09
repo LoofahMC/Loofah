@@ -31,7 +31,6 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.storage.EntityStorage;
 import net.minecraft.world.level.chunk.storage.SimpleRegionStorage;
 import net.minecraft.world.level.entity.ChunkEntities;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.spongepowered.api.ResourceKey;
 import org.spongepowered.api.event.SpongeEventFactory;
 import org.spongepowered.api.event.world.chunk.ChunkEvent;
@@ -53,9 +52,9 @@ import org.spongepowered.common.world.level.chunk.storage.SpongeEntityChunk;
 import org.spongepowered.common.world.level.chunk.storage.SpongeIOWorkerType;
 import org.spongepowered.math.vector.Vector3i;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 
 @Mixin(EntityStorage.class)
 public abstract class EntityStorageMixin {
@@ -76,16 +75,13 @@ public abstract class EntityStorageMixin {
         }
 
         final Vector3i chunkPos = VecHelper.toVector3i($$0x);
-        final SpongeEntityChunk entities = new SpongeEntityChunk(this.level, chunkPos, cir.getReturnValue().getEntities());
+        final SpongeEntityChunk entities = new SpongeEntityChunk(this.level, chunkPos, cir.getReturnValue().getEntities().collect(Collectors.toList()));
         final ChunkEvent.Entities.Load loadEvent = SpongeEventFactory.createChunkEventEntitiesLoad(PhaseTracker.getInstance().currentCause(),
                 entities, chunkPos, (ResourceKey) (Object) this.level.dimension().location());
 
         SpongeCommon.post(loadEvent);
 
-        final @Nullable List<Entity> newList = entities.buildIfChanged();
-        if (newList != null) {
-            cir.setReturnValue(new ChunkEntities<>($$0x, newList));
-        }
+        cir.setReturnValue(new ChunkEntities<>($$0x, entities.build()));
     }
 
     @ModifyVariable(method = "storeEntities", at = @At("HEAD"), argsOnly = true)
@@ -96,7 +92,7 @@ public abstract class EntityStorageMixin {
 
         final Vector3i chunkPos = VecHelper.toVector3i($$0.getPos());
 
-        final SpongeEntityChunk entities = new SpongeEntityChunk(this.level, chunkPos, $$0.getEntities());
+        final SpongeEntityChunk entities = new SpongeEntityChunk(this.level, chunkPos, $$0.getEntities().collect(Collectors.toList()));
         final ChunkEvent.Entities.Save.Pre saveEvent = SpongeEventFactory.createChunkEventEntitiesSavePre(PhaseTracker.getInstance().currentCause(),
                 entities, chunkPos, (ResourceKey) (Object) this.level.dimension().location());
 
@@ -104,12 +100,7 @@ public abstract class EntityStorageMixin {
             return null;
         }
 
-        final @Nullable List<Entity> newList = entities.buildIfChanged();
-        if (newList != null) {
-            return new ChunkEntities<>($$0.getPos(), newList);
-        }
-
-        return $$0;
+        return new ChunkEntities<>($$0.getPos(), entities.build());
     }
 
     @Inject(method = "storeEntities",

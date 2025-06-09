@@ -22,24 +22,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.spongepowered.common.mixin.api.minecraft.world.entity;
+package org.spongepowered.common.accessor.server;
 
-import net.kyori.adventure.text.Component;
-import net.minecraft.world.entity.HumanoidArm;
-import org.spongepowered.api.data.type.HandPreference;
-import org.spongepowered.asm.mixin.Final;
+import net.minecraft.server.ServerFunctionLibrary;
+import net.minecraft.server.ServerFunctionManager;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(HumanoidArm.class)
-public abstract class HumanoidArmMixin_API implements HandPreference {
+@Mixin(ServerFunctionManager.class)
+public interface ServerFunctionManagerAccessor {
 
-    // @formatter:off
-    @Shadow @Final private String translationKey;
-    // @formatter:on
-
-    @Override
-    public Component asComponent() {
-        return Component.translatable(this.translationKey);
-    }
+    @Accessor("library") ServerFunctionLibrary accessor$library();
 }

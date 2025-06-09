@@ -58,6 +58,7 @@
     "server.MinecraftServerMixin",
     "server.PlayerAdvancementsMixin",
     "server.ReloadableServerRegistriesMixin",
+    "server.ServerFunctionLibraryMixin",
     "server.ServerFunctionManagerMixin",
     "server.ServerScoreboardMixin",
     "server.WorldLoaderMixin",

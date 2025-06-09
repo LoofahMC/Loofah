@@ -98,7 +98,6 @@ public final class ItemStackData {
         // TODO DataComponents.TRIM + TrimMaterial + TrimPattern + showInToolTip @HideFlagsItemStackData
         // TODO DataComponents.INSTRUMENT goat horn + API type + duration + range
         // TODO DataComponents.RECIPES - for Items.KNOWLEDGE_BOOK
-        // TODO DataComponents.MAX_STACK_SIZE; incompatible with MAX_DAMAGE?
         // TODO DataComponents.OMINOUS_BOTTLE_AMPLIFIER 1.21
 
         // TODO rework applicable potion effects to consume effects
@@ -162,27 +161,27 @@ public final class ItemStackData {
                         })
                         .delete(h -> h.remove(DataComponents.LORE))
                     .create(Keys.MAX_DURABILITY)
-                        .get(h -> h.getMaxDamage() != 0 ? h.getMaxDamage() : null)
+                        .get(h -> h.get(DataComponents.MAX_DAMAGE))
                         .setAnd((h, v) -> {
-                            if (v <= 0) {
+                            if (v <= 0 || h.getMaxStackSize() > 1) {
                                 return false;
                             }
 
                             h.set(DataComponents.MAX_DAMAGE, v);
                             return true;
                         })
-                        .supports(h -> h.getOrDefault(DataComponents.MAX_STACK_SIZE, 1) == 1)
+                        .delete(h -> h.remove(DataComponents.MAX_DAMAGE))
                     .create(Keys.MAX_STACK_SIZE)
                         .get(ItemStack::getMaxStackSize)
                         .setAnd((h, v) -> {
-                            if (v <= 0 || v > 99) {
+                            if (v <= 0 || v > 99 || h.has(DataComponents.MAX_DAMAGE)) {
                                 return false;
                             }
 
                             h.set(DataComponents.MAX_STACK_SIZE, v);
                             return true;
                         })
-                        .supports(h -> !h.has(DataComponents.MAX_DAMAGE))
+                        .delete(h -> h.remove(DataComponents.MAX_STACK_SIZE))
                     .create(Keys.MODEL)
                         .get(stack -> (ResourceKey) (Object) stack.get(DataComponents.ITEM_MODEL))
                         .set((stack, model) -> stack.set(DataComponents.ITEM_MODEL, (ResourceLocation) (Object) model))
@@ -204,7 +203,7 @@ public final class ItemStackData {
                         .get(h -> {
                             final var food = h.get(DataComponents.FOOD);
                             return food == null ? null : (double) food.saturation();
-                            })
+                        })
                         .set((h, v) -> h.update(DataComponents.FOOD, DEFAULT_FOOD_PROPERTIES,
                                 fp -> new FoodProperties(fp.nutrition(), v.floatValue(), fp.canAlwaysEat())))
                     .create(Keys.CAN_ALWAYS_EAT)

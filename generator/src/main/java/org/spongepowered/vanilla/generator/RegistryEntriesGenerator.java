@@ -131,7 +131,7 @@ public class RegistryEntriesGenerator<V> implements Generator {
             if (registry == null) {
                 throw new IllegalArgumentException("Unknown registry " + this.registry);
             }
-            scopeType = this.scopeOverride != null ? this.scopeOverride : RegistryScope.WORLD;
+            scopeType = this.scopeOverride != null ? this.scopeOverride : RegistryScope.SERVER;
         } else {
             scopeType = this.scopeOverride != null ? this.scopeOverride : RegistryScope.GAME;
         }

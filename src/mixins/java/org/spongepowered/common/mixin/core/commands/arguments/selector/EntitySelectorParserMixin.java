@@ -29,6 +29,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.arguments.selector.EntitySelectorParser;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.objectweb.asm.Opcodes;
+import org.spongepowered.api.command.CommandCause;
 import org.spongepowered.api.command.selector.SelectorType;
 import org.spongepowered.api.util.Tristate;
 import org.spongepowered.asm.mixin.Final;
@@ -41,6 +42,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.common.accessor.commands.arguments.selector.options.EntitySelectorOptionsAccessor;
 import org.spongepowered.common.accessor.commands.arguments.selector.options.EntitySelectorOptions_OptionAccessor;
 import org.spongepowered.common.bridge.commands.arguments.selector.EntitySelectorParserBridge;
+import org.spongepowered.common.util.Constants;
 
 @Mixin(EntitySelectorParser.class)
 public abstract class EntitySelectorParserMixin implements EntitySelectorParserBridge {
@@ -103,4 +105,10 @@ public abstract class EntitySelectorParserMixin implements EntitySelectorParserB
         return this.reader;
     }
 
+    @Inject(method = "allowSelectors", at = @At("HEAD"), cancellable = true)
+    private static <S> void impl$onAllowSelectors(final S $$0, final CallbackInfoReturnable<Boolean> cir) {
+        if ($$0 instanceof final CommandCause cause && cause.hasPermission(Constants.Permissions.SELECTOR_PERMISSION)) {
+            cir.setReturnValue(true);
+        }
+    }
 }
