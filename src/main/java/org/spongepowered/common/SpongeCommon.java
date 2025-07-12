@@ -33,10 +33,12 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.event.Event;
-import org.spongepowered.common.applaunch.config.core.SpongeConfigs;
+import org.spongepowered.common.applaunch.AppLaunch;
+import org.spongepowered.common.config.core.SpongeConfigs;
 import org.spongepowered.common.launch.Launch;
 import org.spongepowered.common.scheduler.AsyncScheduler;
 import org.spongepowered.common.scheduler.ServerScheduler;
@@ -55,6 +57,8 @@ public final class SpongeCommon {
     );
 
     @Inject private @Nullable static SpongeGame game;
+
+    private static @MonotonicNonNull Path pluginConfigDir;
 
     static {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -113,15 +117,14 @@ public final class SpongeCommon {
     }
 
     public static Path gameDirectory() {
-        return Launch.instance().pluginPlatform().baseDirectory();
+        return AppLaunch.pluginPlatform().baseDirectory();
     }
 
     public static Path pluginConfigDirectory() {
-        return Paths.get(SpongeConfigs.getCommon().get().general.configDir.getParsed());
-    }
-
-    public static Path spongeConfigDirectory() {
-        return SpongeCommon.gameDirectory().resolve("config");
+        if (SpongeCommon.pluginConfigDir == null) {
+            SpongeCommon.pluginConfigDir = Paths.get(AppLaunch.pluginPlatform().tokens().replace(SpongeConfigs.getCommon().get().general.pluginConfigDir));
+        }
+        return SpongeCommon.pluginConfigDir;
     }
 
     public static boolean post(final Event event) {

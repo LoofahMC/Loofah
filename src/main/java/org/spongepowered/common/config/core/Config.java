@@ -22,18 +22,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.spongepowered.common.applaunch.config.common;
+package org.spongepowered.common.config.core;
 
-import org.spongepowered.configurate.objectmapping.ConfigSerializable;
-import org.spongepowered.configurate.objectmapping.meta.Comment;
-import org.spongepowered.configurate.objectmapping.meta.Setting;
-
-@ConfigSerializable
-public class DebugCategory {
-
-    @Setting("concurrent-entity-checks")
-    @Comment("Detect and prevent certain attempts to use entities concurrently. \n"
-                                                         + "WARNING: May drastically decrease server performance. Only set this to 'true' "
-                                                         + "to debug a pre-existing issue.")
-    public boolean concurrentEntityChecks = false;
+public interface Config {
 }

@@ -22,7 +22,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.spongepowered.common.applaunch.config.core;
+package org.spongepowered.common.config.core;
 
 import com.google.common.collect.ImmutableSet;
 import io.leangen.geantyref.GenericTypeReflector;
@@ -30,7 +30,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.spongepowered.common.applaunch.AppLaunch;
-import org.spongepowered.common.applaunch.config.common.CommonConfig;
+import org.spongepowered.common.config.common.CommonConfig;
 import org.spongepowered.configurate.CommentedConfigurationNode;
 import org.spongepowered.configurate.ConfigurationOptions;
 import org.spongepowered.configurate.NodePath;
@@ -58,12 +58,13 @@ public final class SpongeConfigs {
     public static final String GLOBAL_NAME = "global.conf";
     public static final String METRICS_NAME = "metrics.conf";
 
-    static final String HEADER = "\n"
-            + "# If you need help with the configuration or have any questions related to Sponge,\n"
-            + "# join us on Discord or drop by our forums and leave a post.\n"
-            + "\n"
-            + "# Discord: https://discord.gg/sponge\n"
-            + "# Forums: https://forums.spongepowered.org/\n";
+    static final String HEADER = """
+        # If you need help with the configuration or have any questions related to Sponge,
+        # join us on Discord or drop by our forums and leave a post.
+
+        # Discord: https://discord.gg/sponge
+        # Forums: https://forums.spongepowered.org/
+        """;
 
     public static final ObjectMapper.Factory OBJECT_MAPPERS = ObjectMapper.factoryBuilder()
             .addNodeResolver(NodeResolver.onlyWithSetting())
@@ -71,11 +72,11 @@ public final class SpongeConfigs {
 
     public static final ConfigurationOptions OPTIONS = ConfigurationOptions.defaults()
             .header(SpongeConfigs.HEADER)
-            .serializers(collection -> collection.register(TokenHoldingString.SERIALIZER)
-                    .register(type -> {
-                        final Class<?> erasure = GenericTypeReflector.erase(type);
-                        return erasure.isAnnotationPresent(ConfigSerializable.class) || Config.class.isAssignableFrom(erasure);
-                    }, SpongeConfigs.OBJECT_MAPPERS.asTypeSerializer())
+            .serializers(collection -> collection
+                .register(type -> {
+                    final Class<?> erasure = GenericTypeReflector.erase(type);
+                    return erasure.isAnnotationPresent(ConfigSerializable.class) || Config.class.isAssignableFrom(erasure);
+                }, SpongeConfigs.OBJECT_MAPPERS.asTypeSerializer())
                 .register(IpSet.Serializer.INSTANCE)
             );
 
@@ -88,9 +89,7 @@ public final class SpongeConfigs {
 
     public static Path getDirectory() {
         if (SpongeConfigs.configDir == null) {
-            SpongeConfigs.configDir = AppLaunch.pluginPlatform().baseDirectory()
-                    .resolve("config")
-                    .resolve("sponge");
+            SpongeConfigs.configDir = AppLaunch.pluginPlatform().configDirectory().resolve("sponge");
         }
         return SpongeConfigs.configDir;
     }
@@ -100,7 +99,7 @@ public final class SpongeConfigs {
      *
      * @return global config
      */
-    @SuppressWarnings("deprecation") // getGlobalInheritable
+    // getGlobalInheritable
     public static ConfigHandle<CommonConfig> getCommon() {
         if (SpongeConfigs.sponge == null) {
             SpongeConfigs.initLock.lock();

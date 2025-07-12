@@ -24,26 +24,30 @@
  */
 package org.spongepowered.common.config;
 
+import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.dimension.DimensionType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.spongepowered.api.ResourceKey;
-import org.spongepowered.common.applaunch.config.core.ConfigHandle;
-import org.spongepowered.common.applaunch.config.core.SpongeConfigs;
+import org.spongepowered.api.world.server.ServerWorld;
+import org.spongepowered.common.SpongeCommon;
 import org.spongepowered.common.bridge.world.level.storage.ServerLevelDataBridge;
+import org.spongepowered.common.config.core.ConfigHandle;
+import org.spongepowered.common.config.core.SpongeConfigs;
 import org.spongepowered.common.config.inheritable.BaseConfig;
 import org.spongepowered.common.config.inheritable.GlobalConfig;
 import org.spongepowered.common.config.inheritable.InheritableConfigHandle;
 import org.spongepowered.common.config.inheritable.WorldConfig;
 import org.spongepowered.common.config.tracker.TrackerConfig;
+import org.spongepowered.common.world.server.SpongeServerLevelData;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Objects;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -73,7 +77,19 @@ public final class SpongeGameConfigs {
     }
 
     public static InheritableConfigHandle<WorldConfig> getForWorld(final net.minecraft.world.level.Level level) {
-        return Objects.requireNonNull(((ServerLevelDataBridge) level.getLevelData()).bridge$spongeData().configAdapter());
+        final SpongeServerLevelData spongeData = ((ServerLevelDataBridge) level.getLevelData()).bridge$spongeData();
+        if (spongeData.configAdapter() == null) {
+            final ResourceKey worldKey = ((ServerWorld) level).key();
+            SpongeCommon.logger().warn("Level data ({}) has no Sponge config but is used by world {} ({}). World config will be reloaded.", level.getLevelData().getClass().getSimpleName(), worldKey, level.getClass().getSimpleName());
+
+            // A custom level data has been set by a mod, so the key is likely missing too.
+            if (spongeData.key() == null) {
+                spongeData.setKey(worldKey);
+            }
+
+            spongeData.setConfigAdapter(SpongeGameConfigs.load(level.dimensionType(), spongeData.key()));
+        }
+        return spongeData.configAdapter();
     }
 
     public static boolean doesWorldConfigExist(final ResourceKey world) {
@@ -81,13 +97,15 @@ public final class SpongeGameConfigs {
         return Files.exists(configPath);
     }
 
-    public static InheritableConfigHandle<WorldConfig> createWorld(final @Nullable ResourceKey dimensionTypeKey, final ResourceKey world) {
+    public static InheritableConfigHandle<WorldConfig> load(final DimensionType dimensionType, final ResourceKey world) {
         // Path format: config/sponge/worlds/<world-namespace>/<world-value>.conf
         final Path configPath = SpongeConfigs.getDirectory().resolve(Paths.get("worlds", world.namespace(), world.value() + ".conf"));
-        if (dimensionTypeKey != null) {
-            // Legacy config path: config/sponge/worlds/<dim-namespace>/<dim-value>/<world-name>/world.conf
-            final String legacyName = SpongeGameConfigs.getLegacyWorldName(world);
-            if (legacyName != null) {
+
+        // Legacy config path: config/sponge/worlds/<dim-namespace>/<dim-value>/<world-name>/world.conf
+        final String legacyName = SpongeGameConfigs.getLegacyWorldName(world);
+        if (legacyName != null) {
+            final ResourceKey dimensionTypeKey = (ResourceKey) (Object) SpongeCommon.vanillaRegistry(Registries.DIMENSION_TYPE).getKey(dimensionType);
+            if (dimensionTypeKey != null) {
                 final Path legacyPath = SpongeConfigs.getDirectory().resolve(Paths.get("worlds", dimensionTypeKey.namespace(),
                         SpongeGameConfigs.getLegacyValue(dimensionTypeKey), legacyName, "world.conf"));
                 if (legacyPath.toFile().isFile() && !configPath.toFile().isFile()) {
@@ -106,6 +124,7 @@ public final class SpongeGameConfigs {
                 }
             }
         }
+
         try {
             final InheritableConfigHandle<WorldConfig> config = new InheritableConfigHandle<>(WorldConfig.class, BaseConfig::transformation, SpongeConfigs.createLoader(configPath),
                     SpongeGameConfigs.getGlobalInheritable());

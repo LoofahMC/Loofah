@@ -16,7 +16,6 @@
   ],
   "mixins": [
     "CrashReportMixin_Vanilla",
-    "brigadier.exceptions.CommandSyntaxExceptionMixin_Vanilla",
     "commands.CommandsMixin_Vanilla",
     "commands.arguments.selector.EntitySelectorMixin_Vanilla",
     "network.ConnectionMixin_Vanilla",

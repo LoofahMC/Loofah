@@ -22,10 +22,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.spongepowered.common.applaunch.config.common;
+package org.spongepowered.common.config.common;
 
-import org.spongepowered.common.applaunch.config.core.Config;
-import org.spongepowered.common.applaunch.config.core.IpSet;
+import org.spongepowered.common.applaunch.config.LaunchConfig;
+import org.spongepowered.common.config.core.Config;
+import org.spongepowered.common.config.core.IpSet;
 import org.spongepowered.configurate.NodePath;
 import org.spongepowered.configurate.objectmapping.meta.Comment;
 import org.spongepowered.configurate.objectmapping.meta.Setting;
@@ -92,20 +93,20 @@ public final class CommonConfig implements Config {
 
     public static ConfigurationTransformation transformation() {
         return ConfigurationTransformation.versionedBuilder()
+                .addVersion(3, CommonConfig.buildTwoToThree())
                 .addVersion(2, CommonConfig.buildOneToTwo())
-                .makeVersion(1, builder -> {
-                    // Update IP forwarding
-                    builder.addAction(NodePath.path("modules", "bungeecord"), TransformAction.rename("ip-forwarding"))
-                            .addAction(NodePath.path("bungeecord"), TransformAction.rename("ip-forwarding"))
-                            .addAction(NodePath.path("bungeecord", "ip-forwarding"), (path, value) -> {
-                                if (value.getBoolean()) {
-                                    value.parent().node("mode").set(IpForwardingCategory.Mode.LEGACY);
-                                }
-                                value.set(null);
-                                return null;
-                            });
-                })
+                .addVersion(1, CommonConfig.buildZeroToOne())
                 .build();
+    }
+
+    static ConfigurationTransformation buildTwoToThree() {
+        return ConfigurationTransformation.builder()
+            .addAction(NodePath.path("general", "plugins-dir"), TransformAction.remove())
+            .addAction(NodePath.path("general", "config-dir"), (path, node) -> {
+                node.set(LaunchConfig.convertLegacyPath(node.getString("")));
+                return TransformAction.rename("plugin-config-dir").visitPath(path, node);
+            })
+            .build();
     }
 
     static ConfigurationTransformation buildOneToTwo() {
@@ -138,6 +139,21 @@ public final class CommonConfig implements Config {
                 .addAction(NodePath.path("optimizations", "disable-scheduled-updates-for-persistent-leaf-blocks"), TransformAction.remove())
                 .addAction(NodePath.path("phase-tracker", "capture-async-commands"), TransformAction.remove())
                 .build();
+    }
+
+    static ConfigurationTransformation buildZeroToOne() {
+        // Update IP forwarding
+        return ConfigurationTransformation.builder()
+            .addAction(NodePath.path("modules", "bungeecord"), TransformAction.rename("ip-forwarding"))
+            .addAction(NodePath.path("bungeecord"), TransformAction.rename("ip-forwarding"))
+            .addAction(NodePath.path("bungeecord", "ip-forwarding"), (path, node) -> {
+                if (node.getBoolean()) {
+                    node.parent().node("mode").set(IpForwardingCategory.Mode.LEGACY);
+                }
+                node.set(null);
+                return null;
+            })
+            .build();
     }
 
     public Map<String, Predicate<InetAddress>> getIpSets() {

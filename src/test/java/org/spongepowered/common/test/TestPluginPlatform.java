@@ -26,10 +26,12 @@ package org.spongepowered.common.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.spongepowered.common.applaunch.config.LaunchConfig;
+import org.spongepowered.common.applaunch.config.TokenReplacement;
 import org.spongepowered.common.applaunch.plugin.PluginPlatform;
-import org.spongepowered.common.applaunch.plugin.PluginPlatformConstants;
 
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 
@@ -43,15 +45,12 @@ public class TestPluginPlatform implements PluginPlatform {
 
     private static final Logger LOGGER = LogManager.getLogger("UnitTestPlatform");
 
-    private final Path outputDirectory;
-    private final Path pluginDirectory;
+    private final Path baseDirectory;
+    private final Path pluginsDirectory;
 
     public TestPluginPlatform() {
-        final ClassLoader classLoader = this.getClass().getClassLoader();
-        final String directory = classLoader.getResource(".").getFile();
-        final Path p = Path.of(directory);
-        this.outputDirectory = p;
-        this.pluginDirectory = p.resolve("plugins");
+        this.baseDirectory = Paths.get(".");
+        this.pluginsDirectory = this.baseDirectory.resolve("plugins");
     }
 
     @Override
@@ -60,42 +59,37 @@ public class TestPluginPlatform implements PluginPlatform {
     }
 
     @Override
-    public void setVersion(final String version) {
-
-    }
-
-    @Override
     public Logger logger() {
         return TestPluginPlatform.LOGGER;
     }
 
     @Override
-    public Path baseDirectory() {
-        return this.outputDirectory;
+    public boolean vanilla() {
+        return true;
     }
 
     @Override
-    public void setBaseDirectory(final Path baseDirectory) {
+    public Path baseDirectory() {
+        return this.baseDirectory;
+    }
 
+    @Override
+    public Path configDirectory() {
+        return this.baseDirectory.resolve("config");
+    }
+
+    @Override
+    public LaunchConfig config() {
+        return LaunchConfig.DEFAULT;
+    }
+
+    @Override
+    public TokenReplacement tokens() {
+        return new TokenReplacement();
     }
 
     @Override
     public List<Path> pluginDirectories() {
-        return Collections.singletonList(this.pluginDirectory);
-    }
-
-    @Override
-    public void setPluginDirectories(final List<Path> pluginDirectories) {
-
-    }
-
-    @Override
-    public String metadataFilePath() {
-        return PluginPlatformConstants.METADATA_FILE_LOCATION;
-    }
-
-    @Override
-    public void setMetadataFilePath(final String metadataFilePath) {
-
+        return Collections.singletonList(this.pluginsDirectory);
     }
 }

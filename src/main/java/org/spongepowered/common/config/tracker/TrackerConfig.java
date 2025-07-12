@@ -24,7 +24,7 @@
  */
 package org.spongepowered.common.config.tracker;
 
-import org.spongepowered.common.applaunch.config.core.Config;
+import org.spongepowered.common.config.core.Config;
 import org.spongepowered.common.event.tracking.IPhaseState;
 import org.spongepowered.common.event.tracking.PhaseContext;
 import org.spongepowered.configurate.objectmapping.meta.Setting;

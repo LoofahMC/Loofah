@@ -117,10 +117,10 @@ public final class InstallerMain {
         final LibraryManager libraryManager = this.installer.getLibraryManager();
         try {
             if (mcVersion != null) {
-                final CompletableFuture<Path> mappingsFuture = this.downloadMappings(mcVersion, LauncherCommandLine.librariesDirectory);
-                final CompletableFuture<Path> originalMcFuture = this.downloadMinecraft(mcVersion, LauncherCommandLine.librariesDirectory);
+                final CompletableFuture<Path> mappingsFuture = this.downloadMappings(mcVersion);
+                final CompletableFuture<Path> originalMcFuture = this.downloadMinecraft(mcVersion);
                 final CompletableFuture<ServerAndLibraries> extractedFuture = originalMcFuture
-                    .thenApplyAsync(bundle -> this.extractBundle(bundle, LauncherCommandLine.librariesDirectory), libraryManager.preparationWorker());
+                    .thenApplyAsync(this::extractBundle, libraryManager.preparationWorker());
                 final CompletableFuture<ServerAndLibraries> remappedMinecraftJarFuture = mappingsFuture.thenCombineAsync(extractedFuture, (mappings, minecraft) -> {
                     try {
                         return this.remapMinecraft(minecraft, mappings);
@@ -188,7 +188,7 @@ public final class InstallerMain {
         final List<String> gameArgs = new ArrayList<>(LauncherCommandLine.remainingArgs);
         gameArgs.add("--launchTarget");
         gameArgs.add(launchTarget);
-        Collections.addAll(gameArgs, this.installer.getLauncherConfig().args.split(" "));
+        Collections.addAll(gameArgs, this.installer.getConfig().args().split(" "));
 
         InstallerMain.bootstrap(bootLibs, spongeBoot, gameArgs.toArray(new String[0]));
     }
@@ -205,12 +205,12 @@ public final class InstallerMain {
     }
 
     private <T extends Throwable> ServerAndLibraries recoverFromMinecraftDownloadError(final T ex) throws T {
-        final Path expectedUnpacked = this.expectedMinecraftLocation(LauncherCommandLine.librariesDirectory, Constants.Libraries.MINECRAFT_VERSION_TARGET);
+        final Path expectedUnpacked = this.expectedMinecraftLocation(Constants.Libraries.MINECRAFT_VERSION_TARGET);
         final Path expectedRemapped = this.expectedRemappedLocation(expectedUnpacked);
         // Re-read bundler metadata (needs original bundled location)
         if (Files.exists(expectedRemapped)) {
             Logger.warn(ex, "Failed to download and remap Minecraft. An existing jar exists, so we will attempt to use that instead.");
-            return this.extractBundle(this.expectedBundleLocation(expectedUnpacked), LauncherCommandLine.librariesDirectory);
+            return this.extractBundle(this.expectedBundleLocation(expectedUnpacked));
         } else {
             throw ex;
         }
@@ -280,8 +280,8 @@ public final class InstallerMain {
         return version;
     }
 
-    private Path expectedMinecraftLocation(final Path librariesDirectory, final String version) {
-        return librariesDirectory.resolve(Constants.Libraries.MINECRAFT_PATH_PREFIX)
+    private Path expectedMinecraftLocation(final String version) {
+        return this.installer.getLibraryManager().getRootDirectory().resolve(Constants.Libraries.MINECRAFT_PATH_PREFIX)
             .resolve(version)
             .resolve(Constants.Libraries.MINECRAFT_SERVER_JAR_NAME + ".jar");
     }
@@ -294,18 +294,18 @@ public final class InstallerMain {
         return originalLocation.resolveSibling(Constants.Libraries.MINECRAFT_SERVER_JAR_NAME + "-bundle.jar");
     }
 
-    private CompletableFuture<Path> downloadMinecraft(final Version version, final Path librariesDirectory) {
+    private CompletableFuture<Path> downloadMinecraft(final Version version) {
         return LibraryUtils.asyncFailableFuture(() -> {
-            final Path downloadTarget = this.expectedBundleLocation(this.expectedMinecraftLocation(librariesDirectory, version.id()));
+            final Path downloadTarget = this.expectedBundleLocation(this.expectedMinecraftLocation(version.id()));
             final Version.Downloads.Download server = version.downloads().server();
 
             if (Files.notExists(downloadTarget)) {
-                if (!this.installer.getLauncherConfig().autoDownloadLibraries) {
+                if (!this.installer.getConfig().autoDownloadLibraries()) {
                     throw new IOException(String.format("The Minecraft jar is not located at '%s' and downloading it has been turned off.", downloadTarget));
                 }
                 LibraryUtils.downloadAndVerifyDigest(TinyLogger.INSTANCE, server.url(), downloadTarget, "SHA-1", server.sha1());
             } else {
-                if (this.installer.getLauncherConfig().checkLibraryHashes) {
+                if (this.installer.getConfig().checkLibraryHashes()) {
                     Logger.info("Detected existing Minecraft Server jar, verifying hashes...");
 
                     // Pipe the download stream into the file and compute the SHA-1
@@ -324,8 +324,8 @@ public final class InstallerMain {
         }, this.installer.getLibraryManager().preparationWorker());
     }
 
-    private ServerAndLibraries extractBundle(final Path bundleJar, final Path librariesDirectory) {
-        final Path serverDestination = this.expectedMinecraftLocation(librariesDirectory, Constants.Libraries.MINECRAFT_VERSION_TARGET);
+    private ServerAndLibraries extractBundle(final Path bundleJar) {
+        final Path serverDestination = this.expectedMinecraftLocation(Constants.Libraries.MINECRAFT_VERSION_TARGET);
         try (final JarFile bundle = new JarFile(bundleJar.toFile())) {
             final Optional<BundlerMetadata> metaOpt = BundlerMetadata.read(bundle);
             if (metaOpt.isEmpty()) {
@@ -354,10 +354,11 @@ public final class InstallerMain {
             }
 
             // Extract libraries
+            final Path libsDir = this.installer.getLibraryManager().getRootDirectory();
             final Map<GroupArtifactVersion, Path> libs = new HashMap<>();
             for (final BundleElement library : md.libraries()) {
                 final GroupArtifactVersion gav = GroupArtifactVersion.parse(library.id());
-                final Path destination = gav.resolve(librariesDirectory).resolve(gav.artifact() + '-' + gav.version() + (gav.classifier() == null ? "" : '-' + gav.classifier()) +".jar");
+                final Path destination = gav.resolve(libsDir).resolve(gav.artifact() + '-' + gav.version() + (gav.classifier() == null ? "" : '-' + gav.classifier()) +".jar");
 
                 if (Files.exists(destination)) {
                     if (LibraryUtils.validateDigest("SHA-256", library.sha256(), destination)) {
@@ -381,10 +382,10 @@ public final class InstallerMain {
         }
     }
 
-    private CompletableFuture<Path> downloadMappings(final Version version, final Path librariesDirectory) {
+    private CompletableFuture<Path> downloadMappings(final Version version) {
         return LibraryUtils.asyncFailableFuture(() -> {
             Logger.info("Setting up names for Minecraft {}", Constants.Libraries.MINECRAFT_VERSION_TARGET);
-            final Path downloadTarget = librariesDirectory.resolve(Constants.Libraries.MINECRAFT_MAPPINGS_PREFIX)
+            final Path downloadTarget = this.installer.getLibraryManager().getRootDirectory().resolve(Constants.Libraries.MINECRAFT_MAPPINGS_PREFIX)
                     .resolve(Constants.Libraries.MINECRAFT_VERSION_TARGET)
                     .resolve(Constants.Libraries.MINECRAFT_MAPPINGS_NAME);
 
@@ -393,7 +394,7 @@ public final class InstallerMain {
                 throw new IOException(String.format("Mappings were not included in version manifest for %s", Constants.Libraries.MINECRAFT_VERSION_TARGET));
             }
 
-            final boolean checkHashes = this.installer.getLauncherConfig().checkLibraryHashes;
+            final boolean checkHashes = this.installer.getConfig().checkLibraryHashes();
             if (Files.exists(downloadTarget)) {
                 if (checkHashes) {
                     Logger.info("Detected existing mappings, verifying hashes...");
@@ -409,7 +410,7 @@ public final class InstallerMain {
                 }
             }
 
-            if (this.installer.getLauncherConfig().autoDownloadLibraries) {
+            if (this.installer.getConfig().autoDownloadLibraries()) {
                 if (checkHashes) {
                     LibraryUtils.downloadAndVerifyDigest(TinyLogger.INSTANCE, mappings.url(), downloadTarget, "SHA-1", mappings.sha1());
                 } else {

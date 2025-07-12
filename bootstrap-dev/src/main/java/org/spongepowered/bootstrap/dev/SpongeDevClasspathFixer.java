@@ -100,6 +100,7 @@ public class SpongeDevClasspathFixer implements BootstrapClasspathModifier {
                             break;
                         case "", "vanilla", "forge":
                             switch (sourceSet.name()) {
+                                case "applaunchConfig":
                                 case "applaunch":
                                     bootUnions.add("applaunch", path);
                                     break;

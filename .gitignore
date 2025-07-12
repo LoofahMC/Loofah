@@ -59,7 +59,8 @@ Thumbs.db
 .classpath
 .externalToolBuilders
 .gradle
-.idea
+.idea/*
+!.idea/icon.svg
 .project
 .settings
 .checkstyle

@@ -34,6 +34,7 @@ import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.login.ServerboundCustomQueryAnswerPacket;
 import net.minecraft.network.protocol.login.ServerboundKeyPacket;
+import net.minecraft.network.protocol.login.custom.CustomQueryAnswerPayload;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerLoginPacketListenerImpl;
 import net.minecraft.server.players.PlayerList;
@@ -288,7 +289,11 @@ public abstract class ServerLoginPacketListenerImplMixin implements ServerLoginP
 
     @Inject(method = "handleCustomQueryPacket", at = @At("HEAD"), cancellable = true)
     private void impl$onHandleCustomQueryPacket(final ServerboundCustomQueryAnswerPacket packet, final CallbackInfo ci) {
-        if (!(packet.payload() instanceof final SpongeChannelAnswerPayload payload)) {
+        final CustomQueryAnswerPayload payload = packet.payload();
+        final int transactionId = packet.transactionId();
+        if (!(payload instanceof SpongeChannelAnswerPayload
+            // some clients may answer a null payload to unknown queries
+            || (payload == null && ((ConnectionBridge) this.connection).bridge$getTransactionStore().contains(transactionId)))) {
             return;
         }
 
@@ -297,7 +302,7 @@ public abstract class ServerLoginPacketListenerImplMixin implements ServerLoginP
         this.server.execute(() -> {
             final SpongeChannelManager channelRegistry = (SpongeChannelManager) Sponge.channelManager();
             final EngineConnection connection = ((ConnectionBridge) this.connection).bridge$getEngineConnection();
-            channelRegistry.handleLoginResponsePayload(connection, (EngineConnectionState) this, payload.id(), packet.transactionId(), payload.consumer());
+            channelRegistry.handleLoginResponsePayload(connection, (EngineConnectionState) this, transactionId, payload == null ? null : ((SpongeChannelAnswerPayload) payload).consumer());
         });
     }
 

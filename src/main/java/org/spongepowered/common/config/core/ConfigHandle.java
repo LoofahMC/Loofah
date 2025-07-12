@@ -22,7 +22,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.spongepowered.common.applaunch.config.core;
+package org.spongepowered.common.config.core;
 
 import io.leangen.geantyref.TypeToken;
 import org.apache.logging.log4j.LogManager;

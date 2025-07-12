@@ -181,8 +181,7 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
 
         if (spongeData.configAdapter() == null) {
             final DimensionType dimensionType = levelStem.type().value();
-            final ResourceKey worldTypeKey = (ResourceKey) (Object) SpongeCommon.vanillaRegistry(Registries.DIMENSION_TYPE).getKey(dimensionType);
-            spongeData.setConfigAdapter(SpongeGameConfigs.createWorld(worldTypeKey, spongeData.key()));
+            spongeData.setConfigAdapter(SpongeGameConfigs.load(dimensionType, spongeData.key()));
         }
 
         this.impl$levelSave = storage;

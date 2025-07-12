@@ -22,20 +22,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.spongepowered.common.applaunch.config.common;
+package org.spongepowered.common.config.common;
 
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import org.spongepowered.configurate.objectmapping.meta.Comment;
 import org.spongepowered.configurate.objectmapping.meta.Setting;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @ConfigSerializable
-public final class ExploitCategory {
+public final class CommandsCategory {
 
-    @Setting("max-book-page-size")
-    @Comment("Controls the maximum size of a book page. (Default: 32767)")
-    public int maxBookPageSize = 32767;
-
-    @Setting("max-book-size")
-    @Comment("Controls the maximum size of a book")
-    public int maxBookSize = this.maxBookPageSize * 1000;
+    @Setting
+    @Comment("Command aliases will resolve conflicts when multiple plugins request a specific command, \n"
+                     + "Correct syntax is <unqualified command>=<plugin name> e.g. \"sethome=homeplugin\"")
+    public final Map<String, String> aliases = new HashMap<>();
 }
