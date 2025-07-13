@@ -33,6 +33,8 @@ import java.lang.reflect.InvocationTargetException;
 public class AppLaunchMain implements PreLaunchEntrypoint {
     @Override
     public void onPreLaunch() {
+        // Call bootstrap here again to make sure it was bootstrapped before using.
+        FabricPluginPlatform.bootstrap();
         final FabricPluginPlatform pluginPlatform = AppLaunch.pluginPlatform();
 
         pluginPlatform.discoverLocatorServices();

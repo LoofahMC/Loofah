@@ -30,16 +30,22 @@ import net.fabricmc.loader.api.ModContainer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.spongepowered.common.applaunch.AppLaunch;
-import org.spongepowered.common.applaunch.config.core.SpongeConfigs;
+import org.spongepowered.common.applaunch.config.LaunchConfig;
+import org.spongepowered.common.applaunch.config.TokenReplacement;
 import org.spongepowered.common.applaunch.plugin.PluginPlatform;
 import org.spongepowered.common.applaunch.plugin.PluginPlatformConstants;
-import org.spongepowered.plugin.*;
+import org.spongepowered.plugin.Environment;
+import org.spongepowered.plugin.PluginCandidate;
+import org.spongepowered.plugin.PluginLanguageService;
+import org.spongepowered.plugin.PluginResource;
+import org.spongepowered.plugin.PluginResourceLocatorService;
 import org.spongepowered.plugin.blackboard.Keys;
 import org.spongepowered.plugin.builtin.StandardEnvironment;
 import org.spongepowered.plugin.builtin.jvm.JVMKeys;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 
 /**
@@ -49,89 +55,124 @@ import java.util.*;
 public class FabricPluginPlatform implements PluginPlatform {
     private static volatile boolean bootstrapped;
 
-    private final StandardEnvironment standardEnvironment;
+    private final Environment environment;
+    private final LaunchConfig config;
+    private final TokenReplacement tokens;
+
     private final Map<String, PluginResourceLocatorService<?>> locatorServices;
     private final Map<String, PluginLanguageService> languageServices;
 
     private final Map<String, Set<? extends PluginResource>> locatorResources;
     private final Map<PluginLanguageService, List<PluginCandidate>> pluginCandidates;
 
-    public FabricPluginPlatform() {
-        this.locatorServices = new HashMap<>();
-        this.languageServices = new HashMap<>();
-        this.locatorResources = new HashMap<>();
-        this.pluginCandidates = new IdentityHashMap<>();
-        this.standardEnvironment = new StandardEnvironment(LogManager.getLogger("Loofah/AppLaunch"));
+    public static synchronized void bootstrap() {
+        if (FabricPluginPlatform.bootstrapped) {
+            return;
+        }
+        final FabricPluginPlatform platform;
+        try {
+            platform = new FabricPluginPlatform();
+        } catch (final IOException e) {
+            throw new RuntimeException(e);
+        }
+        AppLaunch.setPluginPlatform(platform);
+        FabricPluginPlatform.bootstrapped = true;
     }
 
-    public static synchronized void bootstrap() {
-        if (FabricPluginPlatform.bootstrapped) { return; }
+    public FabricPluginPlatform() throws IOException {
+        final FabricLoader loader = FabricLoader.getInstance();
+        this.environment = new StandardEnvironment(LogManager.getLogger("Loofah/AppLaunch"));
 
-        FabricPluginPlatform pluginPlatform = new FabricPluginPlatform();
-        AppLaunch.setPluginPlatform(pluginPlatform);
-        FabricLoader loader = FabricLoader.getInstance();
-        pluginPlatform.setBaseDirectory(loader.getGameDir());
         ModContainer loofahModContainer = loader
             .getModContainer("loofah")
             .orElseThrow(() -> new IllegalStateException("Tried to get own ModContainer, but it wasn't available. This should be impossible!!"));
         String loofahVersion = loofahModContainer.getMetadata().getVersion().getFriendlyString();
-        pluginPlatform.setVersion(loofahVersion);
-        ArrayList<Path> pluginDirectories = new ArrayList<>(2);
-        pluginPlatform.setPluginDirectories(pluginDirectories);
-        pluginDirectories.add(loader.getGameDir().resolve("mods"));
-        pluginDirectories.add(Paths.get(SpongeConfigs.getCommon().get().general.pluginsDir.getParsed()));
-        pluginPlatform.setMetadataFilePath(PluginPlatformConstants.METADATA_FILE_LOCATION);
+        this.setVersion(loofahVersion == null ? "dev" : loofahVersion);
 
-        FabricPluginPlatform.bootstrapped = true;
-    }
+        final Path baseDirectory = loader.getGameDir();
+        this.setBaseDirectory(baseDirectory);
+        this.setMetadataFilePath(PluginPlatformConstants.METADATA_FILE_LOCATION);
 
-    public Environment getStandardEnvironment() {
-        return this.standardEnvironment;
+        this.config = LaunchConfig.load(baseDirectory, true);
+
+        final Path modsDirectory = baseDirectory.resolve("mods");
+        this.tokens = new TokenReplacement();
+        this.tokens.register("BASE_DIR", baseDirectory);
+        this.tokens.register("CONFIG_DIR", this.configDirectory());
+        this.tokens.register("MODS_DIR", modsDirectory);
+
+        this.locatorServices = new HashMap<>();
+        this.languageServices = new HashMap<>();
+        this.locatorResources = new HashMap<>();
+        this.pluginCandidates = new IdentityHashMap<>();
+
+        final Path additionalPluginsDirectory = Path.of(this.tokens.replace(this.config.additionalPluginsDirectory()));
+        Files.createDirectories(additionalPluginsDirectory);
+        this.setPluginDirectories(List.of(modsDirectory, additionalPluginsDirectory));
     }
 
     @Override
     public String version() {
-        return this.standardEnvironment.blackboard().get(Keys.VERSION);
+        return this.environment.blackboard().get(Keys.VERSION);
     }
 
-    @Override
     public void setVersion(String version) {
-        this.standardEnvironment.blackboard().set(Keys.VERSION, version);
+        this.environment.blackboard().set(Keys.VERSION, version);
     }
 
     @Override
     public Logger logger() {
-        return this.standardEnvironment.logger();
+        return this.environment.logger();
+    }
+
+    @Override
+    public boolean vanilla() {
+        return false;
     }
 
     @Override
     public Path baseDirectory() {
-        return this.standardEnvironment.blackboard().get(Keys.BASE_DIRECTORY);
+        return this.environment.blackboard().get(Keys.BASE_DIRECTORY);
     }
 
     @Override
+    public Path configDirectory() {
+        return this.baseDirectory().resolve("config");
+    }
+
+    @Override
+    public LaunchConfig config() {
+        return this.config;
+    }
+
+    @Override
+    public TokenReplacement tokens() {
+        return this.tokens;
+    }
+
     public void setBaseDirectory(Path path) {
-        this.standardEnvironment.blackboard().set(Keys.BASE_DIRECTORY, path);
+        this.environment.blackboard().set(Keys.BASE_DIRECTORY, path);
     }
 
     @Override
     public List<Path> pluginDirectories() {
-        return this.standardEnvironment.blackboard().get(Keys.PLUGIN_DIRECTORIES);
+        return this.environment.blackboard().get(Keys.PLUGIN_DIRECTORIES);
     }
 
-    @Override
     public void setPluginDirectories(List<Path> list) {
-        this.standardEnvironment.blackboard().set(Keys.PLUGIN_DIRECTORIES, list);
+        this.environment.blackboard().set(Keys.PLUGIN_DIRECTORIES, list);
     }
 
-    @Override
     public String metadataFilePath() {
-        return this.standardEnvironment.blackboard().get(Keys.METADATA_FILE_PATH);
+        return this.environment.blackboard().get(Keys.METADATA_FILE_PATH);
     }
 
-    @Override
     public void setMetadataFilePath(String path) {
-        this.standardEnvironment.blackboard().set(Keys.METADATA_FILE_PATH, path);
+        this.environment.blackboard().set(Keys.METADATA_FILE_PATH, path);
+    }
+
+    public Environment getEnvironment() {
+        return this.environment;
     }
 
     public Map<String, PluginResourceLocatorService<? extends PluginResource>> getLocatorServices() {
@@ -159,7 +200,7 @@ public class FabricPluginPlatform implements PluginPlatform {
             try {
                 next = iter.next();
             } catch (final ServiceConfigurationError e) {
-                this.standardEnvironment.logger().error("Error encountered initializing plugin resource locator!", e);
+                this.environment.logger().error("Error encountered initializing plugin resource locator!", e);
                 continue;
             }
 
@@ -169,8 +210,8 @@ public class FabricPluginPlatform implements PluginPlatform {
     }
 
     public void discoverLanguageServices() {
-        this.standardEnvironment.blackboard().set(JVMKeys.JVM_PLUGIN_RESOURCE_FACTORY, FabricPluginResource::new);
-        this.standardEnvironment.blackboard().set(JVMKeys.ENVIRONMENT_LOCATOR_VARIABLE_NAME, "SPONGE_PLUGINS");
+        this.environment.blackboard().set(JVMKeys.JVM_PLUGIN_RESOURCE_FACTORY, FabricPluginResource::new);
+        this.environment.blackboard().set(JVMKeys.ENVIRONMENT_LOCATOR_VARIABLE_NAME, "SPONGE_PLUGINS");
         final ServiceLoader<PluginLanguageService> serviceLoader = ServiceLoader.load(
             PluginLanguageService.class, FabricPluginPlatform.class.getClassLoader()
         );
@@ -181,7 +222,7 @@ public class FabricPluginPlatform implements PluginPlatform {
             try {
                 next = iter.next();
             } catch (final ServiceConfigurationError e) {
-                this.standardEnvironment.logger().error("Error encountered initializing plugin language service!", e);
+                this.environment.logger().error("Error encountered initializing plugin language service!", e);
                 continue;
             }
 
@@ -193,7 +234,7 @@ public class FabricPluginPlatform implements PluginPlatform {
     public void locatePluginResources() {
         for (final Map.Entry<String, PluginResourceLocatorService<?>> locatorEntry : this.locatorServices.entrySet()) {
             final PluginResourceLocatorService<?> locatorService = locatorEntry.getValue();
-            final Set<? extends PluginResource> resources = locatorService.locatePluginResources(this.standardEnvironment);
+            final Set<? extends PluginResource> resources = locatorService.locatePluginResources(this.environment);
             if (!resources.isEmpty()) {
                 this.locatorResources.put(locatorEntry.getKey(), resources);
             }
@@ -205,27 +246,27 @@ public class FabricPluginPlatform implements PluginPlatform {
             if (languageService.name().equals("fabric_mod")) {
                 for (final PluginResource pluginResource : this.locatorResources.values().stream().flatMap(Collection::stream).filter(pluginResource -> pluginResource.locator().equals("fabric_mods")).toList()) {
                     try {
-                        final List<PluginCandidate> candidates = languageService.createPluginCandidates(this.standardEnvironment,
+                        final List<PluginCandidate> candidates = languageService.createPluginCandidates(this.environment,
                             pluginResource);
                         if (candidates.isEmpty()) {
                             continue;
                         }
                         this.pluginCandidates.computeIfAbsent(languageService, k -> new LinkedList<>()).addAll(candidates);
                     } catch (final Exception ex) {
-                        this.standardEnvironment.logger().error("Failed to create plugin candidates", ex);
+                        this.environment.logger().error("Failed to create plugin candidates", ex);
                     }
                 }
             } else {
                 for (final PluginResource pluginResource : this.locatorResources.values().stream().flatMap(Collection::stream).filter(pluginResource -> !pluginResource.locator().equals("fabric_mods")).toList()) {
                     try {
-                        final List<PluginCandidate> candidates = languageService.createPluginCandidates(this.standardEnvironment,
+                        final List<PluginCandidate> candidates = languageService.createPluginCandidates(this.environment,
                             pluginResource);
                         if (candidates.isEmpty()) {
                             continue;
                         }
                         this.pluginCandidates.computeIfAbsent(languageService, k -> new LinkedList<>()).addAll(candidates);
                     } catch (final Exception ex) {
-                        this.standardEnvironment.logger().error("Failed to create plugin candidates", ex);
+                        this.environment.logger().error("Failed to create plugin candidates", ex);
                     }
                 }
             }

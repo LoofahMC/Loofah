@@ -43,6 +43,7 @@ val main: SourceSet = commonProject.sourceSets.named("main").get()
 val launch: SourceSet = commonProject.sourceSets.named("launch").get()
 val launchConfig: Configuration = commonProject.configurations.named("launch").get()
 val applaunch: SourceSet = commonProject.sourceSets.named("applaunch").get()
+val applaunchConf = commonProject.sourceSets.named("applaunchConfig").get()
 val mixins: SourceSet = commonProject.sourceSets.named("mixins").get()
 val accessors: SourceSet = commonProject.sourceSets.named("accessors").get()
 
@@ -68,6 +69,7 @@ val fabricMain by sourceSets.named("main") {
     spongeImpl.addDependencyToImplementation(mixins, this)
     spongeImpl.addDependencyToImplementation(accessors, this)
     spongeImpl.addDependencyToImplementation(applaunch, this)
+    spongeImpl.addDependencyToImplementation(applaunchConf, this)
     spongeImpl.addDependencyToImplementation(launch, this)
     spongeImpl.addDependencyToImplementation(main, this)
 
@@ -80,6 +82,7 @@ val fabricLaunch by sourceSets.register("launch") {
     // implementation (compile) dependencies
     spongeImpl.addDependencyToImplementation(launch, this)
     spongeImpl.addDependencyToImplementation(applaunch, this)
+    spongeImpl.addDependencyToImplementation(applaunchConf, this)
     spongeImpl.addDependencyToImplementation(main, this)
 
     spongeImpl.addDependencyToImplementation(this, fabricMain)
@@ -103,6 +106,7 @@ val fabricAppLaunch by sourceSets.register("applaunch") {
     // implementation (compile) dependencies
     spongeImpl.addDependencyToImplementation(launch, this)
     spongeImpl.addDependencyToImplementation(applaunch, this)
+    spongeImpl.addDependencyToImplementation(applaunchConf, this)
 
     spongeImpl.addDependencyToImplementation(this, fabricMain)
     spongeImpl.addDependencyToImplementation(this, fabricLaunch)
@@ -120,6 +124,7 @@ val fabricMixins by sourceSets.register("mixins") {
     spongeImpl.addDependencyToImplementation(mixins, this)
     spongeImpl.addDependencyToImplementation(accessors, this)
     spongeImpl.addDependencyToImplementation(applaunch, this)
+    spongeImpl.addDependencyToImplementation(applaunchConf, this)
     spongeImpl.addDependencyToImplementation(fabricAppLaunch, this)
     spongeImpl.addDependencyToImplementation(fabricMain, this)
     spongeImpl.addDependencyToImplementation(fabricAccessors, this)
@@ -298,6 +303,7 @@ tasks {
         from(commonProject.sourceSets.named("accessors").map {it.output })
         from(commonProject.sourceSets.named("mixins").map {it.output })
         from(commonProject.sourceSets.named("applaunch").map {it.output })
+        from(commonProject.sourceSets.named("applaunchConfig").map {it.output })
         from(commonProject.sourceSets.named("launch").map {it.output })
         from(commonProject.sourceSets.named("main").map {it.output })
 
