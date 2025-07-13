@@ -63,10 +63,10 @@ import org.spongepowered.common.bridge.world.level.LevelBridge;
 import org.spongepowered.common.bridge.world.level.chunk.CacheKeyBridge;
 import org.spongepowered.common.bridge.world.level.chunk.LevelChunkBridge;
 import org.spongepowered.common.bridge.world.level.storage.PrimaryLevelDataBridge;
-import org.spongepowered.common.config.core.SpongeConfigs;
 import org.spongepowered.common.data.holder.SpongeMutableDataHolder;
 import org.spongepowered.common.entity.PlayerTracker;
 import org.spongepowered.common.event.tracking.PhaseTracker;
+import org.spongepowered.common.launch.config.core.SpongeConfigs;
 import org.spongepowered.common.util.Constants;
 import org.spongepowered.common.util.DirectionUtil;
 

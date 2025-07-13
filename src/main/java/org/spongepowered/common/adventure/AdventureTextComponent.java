@@ -24,6 +24,8 @@
  */
 package org.spongepowered.common.adventure;
 
+import net.kyori.adventure.audience.Audience;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.renderer.ComponentRenderer;
 import net.minecraft.client.Minecraft;
@@ -48,16 +50,16 @@ public class AdventureTextComponent implements net.minecraft.network.chat.Compon
     private net.minecraft.network.chat.@MonotonicNonNull Component converted;
     private @Nullable Locale deepConvertedLocalized;
     private final net.kyori.adventure.text.Component wrapped;
-    private final @Nullable ComponentRenderer<Locale> renderer;
+    private final @Nullable ComponentRenderer<SpongeRendererContext> renderer;
     private @Nullable Locale lastLocale;
     private @Nullable AdventureTextComponent lastRendered;
 
-    public AdventureTextComponent(final net.kyori.adventure.text.Component wrapped, final @Nullable ComponentRenderer<Locale> renderer) {
+    public AdventureTextComponent(final net.kyori.adventure.text.Component wrapped, final @Nullable ComponentRenderer<SpongeRendererContext> renderer) {
         this.wrapped = wrapped;
         this.renderer = renderer;
     }
 
-    public @Nullable ComponentRenderer<Locale> renderer() {
+    public @Nullable ComponentRenderer<SpongeRendererContext> renderer() {
         return this.renderer;
     }
 
@@ -65,12 +67,20 @@ public class AdventureTextComponent implements net.minecraft.network.chat.Compon
         return this.wrapped;
     }
 
-    public synchronized AdventureTextComponent rendered(final Locale locale) {
+    public synchronized AdventureTextComponent rendered(final Locale locale, final @Nullable Audience audience) {
+        if (this.renderer == null) {
+            return this;
+        }
+        final SpongeRendererContext context = new SpongeRendererContext(locale, audience);
+        final Component component = this.renderer.render(this.wrapped, context);
+        if (context.containsVirtualComponents()) {
+            return new AdventureTextComponent(component, null);
+        }
         if (Objects.equals(locale, this.lastLocale)) {
             return this.lastRendered;
         }
         this.lastLocale = locale;
-        return this.lastRendered = this.renderer == null ? this : new AdventureTextComponent(this.renderer.render(this.wrapped, locale), null);
+        return this.lastRendered = new AdventureTextComponent(component, null);
     }
 
     net.minecraft.network.chat.Component deepConverted() {
@@ -87,7 +97,7 @@ public class AdventureTextComponent implements net.minecraft.network.chat.Compon
         net.minecraft.network.chat.Component converted = this.converted;
         final Locale target = LocaleCache.getLocale(Minecraft.getInstance().options.languageCode);
         if (converted == null || this.deepConvertedLocalized != target) {
-            converted = this.converted = this.rendered(target).deepConverted();
+            converted = this.converted = this.rendered(target, null).deepConverted();
             this.deepConvertedLocalized = target;
         }
         return converted;
@@ -104,7 +114,7 @@ public class AdventureTextComponent implements net.minecraft.network.chat.Compon
 
     @Override
     public String getString() {
-        return this.rendered(Locale.getDefault()).deepConverted().getString();
+        return this.rendered(Locale.getDefault(), null).deepConverted().getString();
     }
 
     @Override

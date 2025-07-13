@@ -24,8 +24,6 @@
  */
 package org.spongepowered.vanilla.generator;
 
-import com.squareup.javapoet.AnnotationSpec;
-import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
@@ -38,7 +36,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.flag.FeatureElement;
 import net.minecraft.world.flag.FeatureFlagSet;
 import net.minecraft.world.flag.FeatureFlags;
-import org.jetbrains.annotations.ApiStatus;
 
 import java.io.IOException;
 import java.util.Comparator;
@@ -164,12 +161,12 @@ public class RegistryEntriesGenerator<V> implements Generator {
             if (!featureFlagSet.isSubsetOf(FeatureFlags.VANILLA_SET)) {
                 final var flags = FeatureFlags.REGISTRY.toNames(featureFlagSet).stream().map(rl -> rl.getNamespace().equals("minecraft") ? rl.getPath() : rl.getNamespace() + ":" + rl.getPath()).toArray();
                 // Use this when new feature flags are introduced
-                if (featureFlagSet.contains(FeatureFlags.WINTER_DROP)) {
-                    var annotation = AnnotationSpec.builder(ClassName.get("org.spongepowered.api.util.annotation", "Experimental"))
-                            .addMember("value", "$S", flags).build();
-                    builder.addAnnotation(annotation).build();
-                    builder.addAnnotation(ApiStatus.Experimental.class).build();
-                }
+//                if (featureFlagSet.contains(FeatureFlags.WINTER_DROP)) {
+//                    var annotation = AnnotationSpec.builder(ClassName.get("org.spongepowered.api.util.annotation", "Experimental"))
+//                            .addMember("value", "$S", flags).build();
+//                    builder.addAnnotation(annotation).build();
+//                    builder.addAnnotation(ApiStatus.Experimental.class).build();
+//                }
             }
 
 

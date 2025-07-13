@@ -39,6 +39,7 @@ import net.minecraft.obfuscate.DontObfuscate;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.ServerFunctionManager;
+import net.minecraft.server.WorldStem;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.progress.ChunkProgressListener;
 import net.minecraft.server.packs.repository.PackRepository;
@@ -62,9 +63,11 @@ import org.spongepowered.api.Game;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.event.Cause;
 import org.spongepowered.api.event.CauseStackManager;
+import org.spongepowered.api.event.EventContext;
 import org.spongepowered.api.event.SpongeEventFactory;
 import org.spongepowered.api.event.world.LoadWorldEvent;
 import org.spongepowered.api.event.world.UnloadWorldEvent;
+import org.spongepowered.api.registry.RegistryHolder;
 import org.spongepowered.api.service.permission.Subject;
 import org.spongepowered.api.service.permission.SubjectProxy;
 import org.spongepowered.api.world.DefaultWorldKeys;
@@ -86,6 +89,7 @@ import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 import org.spongepowered.common.SpongeCommon;
 import org.spongepowered.common.SpongeServer;
 import org.spongepowered.common.accessor.server.ServerFunctionManagerAccessor;
+import org.spongepowered.common.adventure.NativeComponentRenderer;
 import org.spongepowered.common.bridge.commands.CommandSourceBridge;
 import org.spongepowered.common.bridge.commands.CommandSourceProviderBridge;
 import org.spongepowered.common.bridge.network.chat.SpongeChatDecorator;
@@ -95,17 +99,21 @@ import org.spongepowered.common.bridge.server.players.GameProfileCacheBridge;
 import org.spongepowered.common.bridge.world.level.storage.PrimaryLevelDataBridge;
 import org.spongepowered.common.bridge.world.level.storage.ServerLevelDataBridge;
 import org.spongepowered.common.config.SpongeGameConfigs;
-import org.spongepowered.common.config.core.SpongeConfigs;
 import org.spongepowered.common.config.inheritable.InheritableConfigHandle;
 import org.spongepowered.common.config.inheritable.WorldConfig;
-import org.spongepowered.common.datapack.SpongeDataPackManager;
+import org.spongepowered.common.event.lifecycle.FreezeRegistryEventImpl;
 import org.spongepowered.common.event.tracking.PhaseTracker;
 import org.spongepowered.common.event.tracking.phase.generation.GenerationPhase;
+import org.spongepowered.common.launch.Launch;
+import org.spongepowered.common.launch.config.core.SpongeConfigs;
+import org.spongepowered.common.registry.RegistryHolderLogic;
+import org.spongepowered.common.registry.SpongeRegistryHolder;
 import org.spongepowered.common.service.server.SpongeServerScopedServiceProvider;
 
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -120,7 +128,6 @@ public abstract class MinecraftServerMixin implements SpongeServer, MinecraftSer
     @Shadow @Final private Map<ResourceKey<Level>, ServerLevel> levels;
     @Shadow @Final private static Logger LOGGER;
     @Shadow private int tickCount;
-    @Shadow @Final protected LevelStorageSource.LevelStorageAccess storageSource;
     @Shadow @Final private Thread serverThread;
     @Shadow @Final private ServerFunctionManager functionManager;
 
@@ -163,6 +170,7 @@ public abstract class MinecraftServerMixin implements SpongeServer, MinecraftSer
             return MinecraftServerMixin.this.serverThread;
         }
     };
+    private RegistryHolderLogic impl$registryHolder;
 
     @Override
     public Subject subject() {
@@ -283,7 +291,7 @@ public abstract class MinecraftServerMixin implements SpongeServer, MinecraftSer
      */
     @Inject(method = "sendSystemMessage", at = @At("HEAD"), cancellable = true)
     private void impl$useTranslatingLogger(final Component input, final CallbackInfo ci) {
-        MinecraftServerMixin.LOGGER.info(input.getString());
+        MinecraftServerMixin.LOGGER.info(NativeComponentRenderer.apply(input, Locale.getDefault(), Sponge.game().systemSubject()).getString());
         ci.cancel();
     }
 
@@ -437,13 +445,6 @@ public abstract class MinecraftServerMixin implements SpongeServer, MinecraftSer
         return this.impl$serviceProvider;
     }
 
-    @Inject(method = "reloadResources", at = @At(value = "HEAD"))
-    public void impl$reloadResources(final Collection<String> datapacksToLoad, final CallbackInfoReturnable<CompletableFuture<Void>> cir) {
-        final List<String> reloadablePacks = ((SpongeDataPackManager) this.dataPackManager()).registerPacks();
-        datapacksToLoad.addAll(reloadablePacks);
-        this.shadow$getPackRepository().reload();
-    }
-
     @Override
     public String toString() {
         return this.getClass().getSimpleName();
@@ -467,5 +468,27 @@ public abstract class MinecraftServerMixin implements SpongeServer, MinecraftSer
         if (this.impl$spongeMainThreadExecutor.pollTask()) {
             cir.setReturnValue(true);
         }
+    }
+
+    @Override
+    public void bridge$reloadServerRegistries(final RegistryHolder holder) {
+        ((SpongeRegistryHolder) holder).setRootMinecraftRegistry(this.shadow$registryAccess());
+        Launch.instance().lifecycle().beginEstablishServerRegistries(holder);
+    }
+
+    @Inject(method = "<init>", at = @At("TAIL"))
+    public void impl$onInit(final CallbackInfo ci, final @Local(argsOnly = true) WorldStem levelStem) {
+        this.bridge$reloadedServerRegistries(((SpongeRegistryHolder) levelStem.resourceManager()).registryHolder());
+    }
+
+    @Override
+    public void bridge$reloadedServerRegistries(final RegistryHolderLogic holder) {
+        this.impl$registryHolder = holder;
+        Sponge.game().eventManager().post(FreezeRegistryEventImpl.PostImpl.EngineImpl.server(Cause.of(EventContext.empty(), Sponge.game()), Sponge.game(), holder));
+    }
+
+    @Override
+    public RegistryHolderLogic bridge$registryHolder() {
+        return this.impl$registryHolder;
     }
 }

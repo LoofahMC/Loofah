@@ -32,12 +32,13 @@ import com.llamalad7.mixinextras.sugar.ref.LocalBooleanRef;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
+import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundExplodePacket;
-import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.bossevents.CustomBossEvents;
 import net.minecraft.server.level.ServerChunkCache;
@@ -46,6 +47,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.progress.ChunkProgressListener;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.server.players.PlayerList;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.RandomSequences;
 import net.minecraft.world.entity.Entity;
@@ -58,6 +60,7 @@ import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerExplosion;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.JukeboxBlockEntity;
 import net.minecraft.world.level.block.entity.TickingBlockEntity;
@@ -291,19 +294,16 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
     }
 
     @Override
-    public void bridge$handleExplosionPacket(final ServerGamePacketListenerImpl instance, Explosion apiExplosion,
-        final ClientboundExplodePacket packet) {
-        if (apiExplosion.shouldPlaySmoke()) {
-            // TODO no sound?
-            // TODO control which particle is used (API)
-            // TODO control sound? (ViewerPacketUtil.resolveEvent)
-            var newPacket = new ClientboundExplodePacket(packet.center(), packet.playerKnockback(), packet.explosionParticle(), packet.explosionSound());
-            instance.send(newPacket);
-        }
-        else {
-            packet.playerKnockback().ifPresent(kb -> instance.send(new ClientboundSetEntityMotionPacket(instance.player.getId(), kb)));
-            // TODO play sound?
-        }
+    public void bridge$handleExplosionPacket(final ServerGamePacketListenerImpl instance, Explosion apiExplosion, final ClientboundExplodePacket packet) {
+        // TODO control particle in API
+        ParticleOptions particleData = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.AIR.defaultBlockState()); // "no" particle
+        particleData = packet.explosionParticle();
+        // TODO control sound in API
+        var soundEvent = Holder.direct(new SoundEvent(ResourceLocation.parse("sponge:none"), Optional.of(0f))); // "no" sound
+        soundEvent = packet.explosionSound();
+        // TODO apiExplosion.shouldPlaySmoke() is not initialized correctly
+        var newPacket = new ClientboundExplodePacket(packet.center(), packet.playerKnockback(), particleData, soundEvent);
+        instance.send(newPacket);
     }
     @Override
     public void bridge$setManualSave(final boolean state) {

@@ -26,9 +26,12 @@ package org.spongepowered.common.mixin.core.network;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
+import net.minecraft.network.Connection;
 import net.minecraft.network.PacketEncoder;
 import net.minecraft.network.PacketListener;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import org.spongepowered.api.entity.living.player.server.ServerPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -42,6 +45,9 @@ public class PacketEncoderMixin<T extends PacketListener> {
             at = @At(value = "INVOKE", target = "Lnet/minecraft/network/codec/StreamCodec;encode(Ljava/lang/Object;Ljava/lang/Object;)V"))
     private void impl$setLocaleBeforeEncode(final ChannelHandlerContext ctx, final Packet<T> $$1, final ByteBuf $$2, final CallbackInfo ci) {
         SpongeAdventure.ENCODING_LOCALE.set(ctx.channel().attr(SpongeAdventure.CHANNEL_LOCALE).get());
+        if (ctx.pipeline().get(Connection.class).getPacketListener() instanceof final ServerGamePacketListenerImpl serverGamePacketListener) {
+            SpongeAdventure.ENCODING_PLAYER.set((ServerPlayer) serverGamePacketListener.player);
+        }
     }
 
     @Inject(method = "encode(Lio/netty/channel/ChannelHandlerContext;Lnet/minecraft/network/protocol/Packet;Lio/netty/buffer/ByteBuf;)V",
@@ -49,5 +55,6 @@ public class PacketEncoderMixin<T extends PacketListener> {
                     shift = At.Shift.AFTER))
     private void impl$clearLocaleAfterEncode(final ChannelHandlerContext ctx, final Packet<T> $$1, final ByteBuf $$2, final CallbackInfo ci) {
         SpongeAdventure.ENCODING_LOCALE.remove();
+        SpongeAdventure.ENCODING_PLAYER.remove();
     }
 }

@@ -28,17 +28,15 @@ import net.kyori.adventure.identity.Identity;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.spongepowered.api.ResourceKey;
-import org.spongepowered.api.Sponge;
 import org.spongepowered.api.command.Command;
 import org.spongepowered.api.command.CommandResult;
 import org.spongepowered.api.command.parameter.CommandContext;
-import org.spongepowered.api.data.persistence.DataContainer;
+import org.spongepowered.api.event.lifecycle.RegisterRegistryValueEvent;
+import org.spongepowered.api.registry.RegistryTypes;
 import org.spongepowered.api.world.generation.carver.Carver;
-import org.spongepowered.api.world.generation.carver.CarverTemplate;
 import org.spongepowered.api.world.generation.carver.CarverTypes;
 import org.spongepowered.api.world.generation.carver.Carvers;
 
-import java.io.IOException;
 
 public class CarverTest {
 
@@ -52,18 +50,12 @@ public class CarverTest {
             ctx.sendMessage(Identity.nil(), Component.text(" - " + e.key(), NamedTextColor.GRAY));
         });
 
-        final CarverTemplate template = CarverTemplate.builder().fromValue(Carvers.CAVE.get()).key(ResourceKey.of("carvertest", "custom_carver")).build();
-        final DataContainer container = template.toContainer();
-        try {
-            final CarverTemplate rebuiltTemplate = CarverTemplate.builder().fromDataPack(container).key(ResourceKey.of("carvertest", "custom_carver")).build();
-            Sponge.server().dataPackManager().save(rebuiltTemplate);
-
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
-        final Carver reconfigured = CarverTypes.CAVE.get().configure(container);
-
         return CommandResult.success();
+    }
+
+    public void register(final RegisterRegistryValueEvent event) {
+        event.registry(RegistryTypes.CARVER, (h, s) ->
+            s.register(ResourceKey.of("carvertest", "custom_carver"), Carver.builder().from(Carvers.CAVE.get(h)).build()));
     }
 
 

@@ -26,6 +26,7 @@ package org.spongepowered.common.mixin.core.network.chat;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
+import org.spongepowered.api.entity.living.player.server.ServerPlayer;
 import org.spongepowered.api.util.locale.Locales;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -41,7 +42,8 @@ public abstract class ComponentSerializationMixin {
     @ModifyVariable(method = "lambda$createCodec$6", at = @At(value = "HEAD"), argsOnly = true)
     private static Component impl$localizeComponent(final Component input) {
         final Locale locale = SpongeAdventure.ENCODING_LOCALE.get();
-        return NativeComponentRenderer.apply(input, locale == null ? Locales.DEFAULT : locale);
+        final ServerPlayer player = SpongeAdventure.ENCODING_PLAYER.get();
+        return NativeComponentRenderer.apply(input, locale == null ? Locales.DEFAULT : locale, player);
     }
 
     //TODO: Do this for ItemStacks too

@@ -29,9 +29,7 @@ import com.google.inject.Injector;
 import com.google.inject.Singleton;
 import io.leangen.geantyref.TypeToken;
 import net.minecraft.core.Registry;
-import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.server.RegistryLayer;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.world.flag.FeatureFlagSet;
 import net.minecraft.world.level.WorldDataConfiguration;
@@ -39,18 +37,22 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.spongepowered.api.Client;
 import org.spongepowered.api.Engine;
 import org.spongepowered.api.Game;
-import org.spongepowered.api.Server;
 import org.spongepowered.api.Sponge;
-import org.spongepowered.api.advancement.criteria.trigger.Trigger;
 import org.spongepowered.api.event.Cause;
 import org.spongepowered.api.event.EventContext;
 import org.spongepowered.api.event.SpongeEventFactory;
+import org.spongepowered.api.registry.RegistryHolder;
+import org.spongepowered.api.registry.RegistryRoots;
+import org.spongepowered.api.registry.RegistryType;
+import org.spongepowered.api.registry.RegistryTypes;
 import org.spongepowered.common.applaunch.plugin.DummyPluginContainer;
+import org.spongepowered.common.bridge.core.WritableRegistryBridge;
 import org.spongepowered.common.bridge.server.MinecraftServerBridge;
 import org.spongepowered.common.bridge.server.packs.resources.ResourceManagerBridge;
 import org.spongepowered.common.data.SpongeDataManager;
 import org.spongepowered.common.event.lifecycle.AbstractRegisterRegistryEvent;
 import org.spongepowered.common.event.lifecycle.AbstractRegisterRegistryValueEvent;
+import org.spongepowered.common.event.lifecycle.FreezeRegistryEventImpl;
 import org.spongepowered.common.event.lifecycle.RegisterBuilderEventImpl;
 import org.spongepowered.common.event.lifecycle.RegisterChannelEventImpl;
 import org.spongepowered.common.event.lifecycle.RegisterDataEventImpl;
@@ -71,7 +73,10 @@ import org.spongepowered.common.service.server.permission.SpongeContextCalculato
 import org.spongepowered.plugin.PluginContainer;
 
 import java.util.Collection;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Singleton
 public final class SpongeLifecycle implements Lifecycle {
@@ -79,7 +84,6 @@ public final class SpongeLifecycle implements Lifecycle {
     private final Game game;
     private final Injector injector;
     private FeatureFlagSet featureFlags;
-    public boolean establishedPluginRegistries = false;
 
     @Inject
     public SpongeLifecycle(final Game game, final Injector injector) {
@@ -113,6 +117,7 @@ public final class SpongeLifecycle implements Lifecycle {
         this.game.eventManager().post(new RegisterBuilderEventImpl(Cause.of(EventContext.empty(), this.game), this.game));
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public void establishEarlyGlobalRegistries() {
         final SpongeRegistryHolder holder = (SpongeRegistryHolder) this.game;
@@ -122,41 +127,23 @@ public final class SpongeLifecycle implements Lifecycle {
     }
 
     @Override
-    public void finalizeEarlyGlobalRegistries() {
+    public void establishGlobalRegistries() {
+        final SpongeRegistryHolder holder = (SpongeRegistryHolder) this.game;
 
-        // Vanilla registries we want plugins to be able to modify:
-        // TODO marker for this in API?
-        this.game.eventManager().post(new AbstractRegisterRegistryValueEvent.BuiltInImpl<>(Cause.of(EventContext.empty(), this.game), this.game,
-                (org.spongepowered.api.registry.Registry<Trigger<?>>) BuiltInRegistries.TRIGGER_TYPES));
+        // Plugin registries
+        this.game.eventManager().post(new AbstractRegisterRegistryEvent.GameScopedImpl(Cause.of(EventContext.empty(), this.game), this.game));
+
+        // Freeze Sponge Root - Registries are now available
+        holder.registryHolder().freezeSpongeRootRegistry();
+
+        this.game.eventManager().post(new AbstractRegisterRegistryValueEvent.GameScopedImpl(Cause.of(EventContext.empty(), this.game), this.game,
+            holder.streamRegistries().collect(Collectors.toMap(org.spongepowered.api.registry.Registry::type, Function.identity()))));
     }
 
-    @Override
-    public void establishGlobalRegistries(final RegistryAccess.Frozen registryAccess, final RegistryLayer layer) {
-        final SpongeRegistryHolder holder = (SpongeRegistryHolder) this.game;
-        SpongeCommon.logger().info("Layer {}", layer);
-        switch (layer)
-        {
-            // WORLDGEN ->
-            case DIMENSIONS -> {
-                SpongeRegistries.registerGlobalRegistriesDimensionLayer((SpongeRegistryHolder) this.game, registryAccess, this.featureFlags);
+    public void endEstablishGlobalRegistries() {
+        ((SpongeRegistryHolder) this.game).registryHolder().freezeSpongeDynamicRegistries(true);
 
-                // Plugin registries
-                this.game.eventManager().post(new AbstractRegisterRegistryEvent.GameScopedImpl(Cause.of(EventContext.empty(), this.game), this.game));
-
-                // Freeze Sponge Root - Registries are now available
-                holder.registryHolder().freezeSpongeRootRegistry();
-            }
-            case RELOADABLE -> {
-                if (!this.establishedPluginRegistries) {
-                    // Plugin registry values
-                    this.game.eventManager().post(new AbstractRegisterRegistryValueEvent.GameScopedImpl(Cause.of(EventContext.empty(), this.game), this.game));
-                    // Freeze Dynamic Registries - Values are now available
-                    holder.registryHolder().freezeSpongeDynamicRegistries();
-
-                    this.establishedPluginRegistries = true;
-                }
-            }
-        }
+        this.game.eventManager().post(new FreezeRegistryEventImpl.PostImpl.GameImpl(Cause.of(EventContext.empty(), this.game), this.game));
     }
 
     @Override
@@ -209,31 +196,55 @@ public final class SpongeLifecycle implements Lifecycle {
     }
 
     @Override
-    public void establishServerRegistries(final Server server) {
-        SpongeRegistries.registerServerRegistries(server);
+    public void beginEstablishServerRegistries(final RegistryHolder server) {
+        SpongeRegistries.registerServerRegistries((SpongeRegistryHolder) server, this.featureFlags);
 
-        this.game.eventManager().post(new AbstractRegisterRegistryEvent.EngineScopedImpl<>(Cause.of(EventContext.empty(), this.game), this.game,
-         server));
+        ((SpongeRegistryHolder) server).registryHolder().featureFlagSet(this.featureFlags);
+
+        this.game.eventManager().post(
+            AbstractRegisterRegistryEvent.EngineScopedImpl.server(Cause.of(EventContext.empty(), this.game), this.game, server));
 
         ((SpongeRegistryHolder) server).registryHolder().freezeSpongeRootRegistry();
 
-        this.game.eventManager().post(new AbstractRegisterRegistryValueEvent.EngineScopedImpl<>(Cause.of(EventContext.empty(), this.game),
-                this.game, server));
+        this.processServerRegistries(server, server.streamRegistries(RegistryRoots.SPONGE)
+            .filter(r -> !r.type().equals(RegistryTypes.ADVANCEMENT) && !r.type().equals(RegistryTypes.RECIPE)));
+    }
 
-        ((SpongeRegistryHolder) server).registryHolder().freezeSpongeDynamicRegistries();
+    @Override
+    public void processServerRegistries(final RegistryHolder server, final Stream<? extends org.spongepowered.api.registry.Registry<?>> registries) {
+        try {
+            PhaseTracker.getInstance().startupRegistryHolder(server);
+            final Map<RegistryType<?>, org.spongepowered.api.registry.Registry<?>> map =
+                    registries.collect(Collectors.toMap(org.spongepowered.api.registry.Registry::type, Function.identity()));
+            if (!map.isEmpty()) {
+                map.values().forEach(r -> ((WritableRegistryBridge<?>) r).bridge$setRegistryHolder(server));
+                this.game.eventManager().post(AbstractRegisterRegistryValueEvent.EngineScopedImpl.server(Cause.of(EventContext.empty(), this.game), this.game, server, map));
+                map.values().forEach(r -> ((WritableRegistryBridge<?>) r).bridge$markEventCalled());
+                ((SpongeRegistryHolder) server).registryHolder().freezeSpongeDynamicRegistries(false);
+            }
+        } finally {
+            PhaseTracker.getInstance().startupRegistryHolder(null);
+        }
+    }
+
+    @Override
+    public void endEstablishServerRegistries(final RegistryHolder server) {
+        ((SpongeRegistryHolder) server).registryHolder().freezeSpongeDynamicRegistries(true);
     }
 
     @Override
     public void establishClientRegistries(final Client client) {
-        this.game.eventManager().post(new AbstractRegisterRegistryEvent.EngineScopedImpl<>(Cause.of(EventContext.empty(), this.game), this.game,
-                client));
+        this.game.eventManager().post(
+            AbstractRegisterRegistryEvent.EngineScopedImpl.client(Cause.of(EventContext.empty(), this.game), this.game, client));
 
         ((SpongeRegistryHolder) client).registryHolder().freezeSpongeRootRegistry();
 
-        this.game.eventManager().post(new AbstractRegisterRegistryValueEvent.EngineScopedImpl<>(Cause.of(EventContext.empty(), this.game),
-                this.game, client));
+        this.game.eventManager().post(AbstractRegisterRegistryValueEvent.EngineScopedImpl.client(Cause.of(EventContext.empty(), this.game),
+                this.game, client, client.streamRegistries(RegistryRoots.SPONGE).collect(Collectors.toMap(org.spongepowered.api.registry.Registry::type, Function.identity()))));
 
-        ((SpongeRegistryHolder) client).registryHolder().freezeSpongeDynamicRegistries();
+        ((SpongeRegistryHolder) client).registryHolder().freezeSpongeDynamicRegistries(true);
+
+        this.game.eventManager().post(FreezeRegistryEventImpl.PostImpl.EngineImpl.client(Cause.of(EventContext.empty(), this.game), this.game, client));
     }
 
     @Override

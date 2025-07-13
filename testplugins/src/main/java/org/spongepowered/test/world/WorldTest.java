@@ -38,29 +38,27 @@ import org.spongepowered.api.command.CommandResult;
 import org.spongepowered.api.command.parameter.CommandContext;
 import org.spongepowered.api.command.parameter.CommonParameters;
 import org.spongepowered.api.command.parameter.Parameter;
-import org.spongepowered.api.data.Keys;
-import org.spongepowered.api.data.persistence.DataContainer;
 import org.spongepowered.api.data.persistence.DataFormats;
-import org.spongepowered.api.datapack.DataPacks;
 import org.spongepowered.api.entity.living.player.server.ServerPlayer;
 import org.spongepowered.api.event.Listener;
 import org.spongepowered.api.event.lifecycle.RegisterCommandEvent;
 import org.spongepowered.api.registry.RegistryTypes;
 import org.spongepowered.api.util.Axis;
 import org.spongepowered.api.world.WorldType;
-import org.spongepowered.api.world.WorldTypeTemplate;
 import org.spongepowered.api.world.WorldTypes;
+import org.spongepowered.api.world.generation.ChunkGenerator;
 import org.spongepowered.api.world.portal.PortalLogic;
-import org.spongepowered.api.world.server.DataPackManager;
 import org.spongepowered.api.world.server.ServerLocation;
 import org.spongepowered.api.world.server.ServerWorld;
-import org.spongepowered.api.world.server.WorldTemplate;
+import org.spongepowered.api.world.server.WorldArchetype;
+import org.spongepowered.api.world.server.WorldArchetypeType;
+import org.spongepowered.api.world.server.WorldArchetypeTypes;
+import org.spongepowered.api.world.server.storage.ServerWorldProperties;
 import org.spongepowered.math.vector.Vector3d;
 import org.spongepowered.plugin.PluginContainer;
 import org.spongepowered.plugin.builtin.jvm.Plugin;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
@@ -163,7 +161,7 @@ public final class WorldTest {
             if (t != null) {
                 context.cause().audience().sendMessage(Identity.nil(), Component.text(t.getMessage()));
             } else {
-                if (r != null) {
+                if (r.isPresent()) {
                     context.cause().audience().sendMessage(Identity.nil(), Component.text("World loaded successfully!"));
                 } else {
                     context.cause().audience().sendMessage(Identity.nil(), Component.text("World failed to load!"));
@@ -177,17 +175,12 @@ public final class WorldTest {
     private CommandResult createWorld(final CommandContext context,final Parameter.Value<ResourceKey> worldKeyParameter, final Parameter.Value<WorldType> worldTypeParameter) {
         final ResourceKey key = context.requireOne(worldKeyParameter);
         final WorldType worldType = context.requireOne(worldTypeParameter);
-        final WorldTemplate template = WorldTemplate.builder()
-                .from(WorldTemplate.overworld())
-                .key(key)
-                .add(Keys.WORLD_TYPE, worldType)
-                .add(Keys.PERFORM_SPAWN_LOGIC, true)
-                .build();
+        final WorldArchetypeType worldArchetypeType = WorldArchetypeType.of(worldType, ChunkGenerator.overworld());
 
-        this.game.server().worldManager().loadWorld(template).whenComplete((r, t) -> {
+        this.game.server().worldManager().loadWorld(key, ServerWorldProperties.LoadOptions.create(WorldArchetype.of(worldArchetypeType))).whenComplete((r, t) -> {
             if (t != null) {
                 context.cause().audience().sendMessage(Identity.nil(), Component.text(t.getMessage()));
-            } else if (r != null) {
+            } else if (r.isPresent()) {
                 context.cause().audience().sendMessage(Identity.nil(), Component.text("World created successfully!"));
             } else {
                 context.cause().audience().sendMessage(Identity.nil(), Component.text("World failed to create!"));
@@ -281,39 +274,29 @@ public final class WorldTest {
 
 
     private CommandResult worldTypes(final CommandContext commandContext) {
-        final Optional<ServerPlayer> optPlayer = commandContext.cause().first(ServerPlayer.class);
         for (final WorldType wt : WorldTypes.registry().stream().toList()) {
-            final WorldTypeTemplate template = WorldTypeTemplate.builder().fromValue(wt).key(ResourceKey.of(this.plugin, "test")).build();
-            final DataContainer dataContainer = template.toContainer();
-            optPlayer.ifPresent(player -> player.sendMessage(Component.text(template.key().toString())));
-            System.out.println(template.key());
-            try {
-                System.out.println(DataFormats.JSON.get().write(dataContainer));
-                final WorldTypeTemplate rebuiltTemplate = WorldTypeTemplate.builder().fromDataPack(dataContainer)
-                        .key(ResourceKey.of(this.plugin, "custom" + template.key().value())).build();
-            } catch (final IOException e) {
-                e.printStackTrace();
-            }
+            final ResourceKey key = wt.key(RegistryTypes.WORLD_TYPE);
+            wt.toDataPack(Sponge.server()).ifPresentOrElse(d -> {
+                try {
+                    System.out.println(String.format("%s: ", DataFormats.JSON.get().write(d)));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }, () -> System.out.println(String.format("%s: Is unserializable", key)));
         }
         return CommandResult.success();
     }
 
     private CommandResult worldTemplates(final CommandContext commandContext) {
-        final DataPackManager dm = Sponge.server().dataPackManager();
-        final List<ResourceKey> templates = dm.list(DataPacks.WORLD);
-        for (final ResourceKey key : templates) {
-
-            try {
-                final Optional<WorldTemplate> template = dm.load(DataPacks.WORLD, key).join();
-                if (template.isPresent()) {
-                    System.out.println(key + DataFormats.JSON.get().write(template.get().toContainer()));
-                } else {
-                    System.out.println(key + " (no template)");
+        for (final WorldArchetypeType archetypeType : WorldArchetypeTypes.registry().stream().toList()) {
+            final ResourceKey key = archetypeType.key(RegistryTypes.WORLD_ARCHETYPE_TYPE);
+            archetypeType.toDataPack(Sponge.server()).ifPresentOrElse(d -> {
+                try {
+                    System.out.println(String.format("%s: ", DataFormats.JSON.get().write(d)));
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-            } catch (final Exception e) {
-                System.err.println(key + " " + e.getMessage());
-            }
-
+            }, () -> System.out.println(String.format("%s: Is unserializable", key)));
         }
         return CommandResult.success();
     }

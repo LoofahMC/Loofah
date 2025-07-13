@@ -227,6 +227,7 @@ public class InventoryEventFactory {
     }
 
     public static boolean callInteractContainerOpenEvent(final ServerPlayer player, final AbstractContainerMenu menu) {
+        ((ContainerBridge) menu).bridge$setViewer(player);
         final ItemStackSnapshot newCursor = ItemStackUtil.snapshotOf(menu.getCarried());
         final Transaction<ItemStackSnapshot> cursorTransaction = new Transaction<>(ItemStackSnapshot.empty(), newCursor);
         final InteractContainerEvent.Open event =

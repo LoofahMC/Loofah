@@ -24,6 +24,8 @@
  */
 package org.spongepowered.common.mixin.inventory.event.server.network;
 
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundSelectTradePacket;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
@@ -49,12 +51,13 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.Slice;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.common.bridge.world.TrackedWorldBridge;
+import org.spongepowered.common.bridge.world.inventory.AbstractContainerMenu_InventoryBridge;
 import org.spongepowered.common.bridge.world.inventory.container.MenuBridge;
 import org.spongepowered.common.event.tracking.PhaseContext;
 import org.spongepowered.common.event.tracking.PhaseTracker;
 import org.spongepowered.common.event.tracking.context.transaction.EffectTransactor;
 import org.spongepowered.common.event.tracking.context.transaction.TransactionalCaptureSupplier;
-import org.spongepowered.common.event.tracking.context.transaction.inventory.PlayerInventoryTransaction;
 import org.spongepowered.common.inventory.custom.SpongeInventoryMenu;
 import org.spongepowered.common.item.util.ItemStackUtil;
 
@@ -116,18 +119,27 @@ public class ServerGamePacketListenerImplMixin_Inventory {
         }
     }
 
+    @WrapMethod(method = "handleContainerClick")
+    private void impl$setIsClicking(final ServerboundContainerClickPacket packet, final Operation<Void> original) {
+        var containerBridge = (AbstractContainerMenu_InventoryBridge) this.player.containerMenu;
+        try {
+            containerBridge.bridge$setIsClicking(true);
+            original.call(packet);
+        } finally {
+            containerBridge.bridge$setIsClicking(false);
+        }
+    }
+
     @Redirect(method = "handleUseItem",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerPlayerGameMode;useItem(Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/InteractionHand;)Lnet/minecraft/world/InteractionResult;"))
     private InteractionResult impl$onHandleUseItem(final ServerPlayerGameMode serverPlayerGameMode, final ServerPlayer param0,
             final Level param1, final ItemStack param2, final InteractionHand param3) {
         final PhaseContext<@NonNull ?> context = PhaseTracker.getWorldInstance(this.player.serverLevel()).getPhaseContext();
         final TransactionalCaptureSupplier transactor = context.getTransactor();
-        try (final EffectTransactor ignored = transactor.logPlayerInventoryChangeWithEffect(this.player, PlayerInventoryTransaction.EventCreator.STANDARD)) {
-            final InteractionResult result = serverPlayerGameMode.useItem(param0, param1, param2, param3);
-            this.player.inventoryMenu.broadcastChanges(); // capture
-            return result;
+        try (final EffectTransactor ignored = transactor.logSecondaryInteractItemTransaction(param0, param2)) {
+            final var pipeline = ((TrackedWorldBridge) param1).bridge$startItemInteractionUseChange(param1, param0, param3, param2);
+            return pipeline.processInteraction(context);
         }
-        // TrackingUtil.processBlockCaptures called by UseItemPacketState
     }
 
     @Redirect(method = "handleRenameItem(Lnet/minecraft/network/protocol/game/ServerboundRenameItemPacket;)V",

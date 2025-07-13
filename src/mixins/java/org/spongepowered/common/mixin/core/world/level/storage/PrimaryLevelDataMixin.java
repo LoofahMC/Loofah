@@ -28,22 +28,33 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
 import com.mojang.serialization.Dynamic;
+import com.mojang.serialization.DynamicOps;
 import net.kyori.adventure.text.Component;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.UUIDUtil;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.IntArrayTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.protocol.game.ClientboundChangeDifficultyPacket;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.dimension.LevelStem;
+import net.minecraft.world.level.levelgen.WorldDimensions;
+import net.minecraft.world.level.levelgen.WorldGenSettings;
+import net.minecraft.world.level.levelgen.WorldOptions;
 import net.minecraft.world.level.storage.PrimaryLevelData;
 import net.minecraft.world.level.storage.ServerLevelData;
 import net.minecraft.world.level.storage.WorldData;
@@ -53,6 +64,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.common.accessor.server.MinecraftServerAccessor;
 import org.spongepowered.common.accessor.world.level.LevelSettingsAccessor;
@@ -68,9 +80,11 @@ import org.spongepowered.common.world.server.SpongeServerLevelData;
 import org.spongepowered.math.vector.Vector3i;
 
 import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Mixin(PrimaryLevelData.class)
 public abstract class PrimaryLevelDataMixin implements ServerLevelData, WorldData, PrimaryLevelDataBridge, DataCompoundHolder {
@@ -84,17 +98,16 @@ public abstract class PrimaryLevelDataMixin implements ServerLevelData, WorldDat
     @Shadow public abstract void shadow$setSpawn(BlockPos p_176143_1_, float p_176143_2_);
     // @formatter:on
 
+    @Shadow
+    private boolean difficultyLocked;
     private final SpongeServerLevelData impl$spongeData = new SpongeServerLevelData();
 
     private DimensionType impl$dimensionType;
-    @Nullable private SerializationBehavior impl$serializationBehavior;
-    @Nullable private Component impl$displayName;
-    @Nullable private Integer impl$viewDistance;
-    private Boolean impl$pvp;
+    private ChunkGenerator impl$chunkGenerator;
 
     private final BiMap<Integer, UUID> impl$playerUniqueIdMap = HashBiMap.create();
 
-    private boolean impl$customDifficulty = false, impl$customGameType = false, impl$customSpawnPosition = false, impl$loadOnStartup, impl$performsSpawnLogic;
+    private boolean impl$customDifficulty = false, impl$customGameType = false, impl$customSpawnPosition = false;
 
     private BiMap<Integer, UUID> impl$mapUUIDIndex = HashBiMap.create();
     private @Nullable CompoundTag impl$compound;
@@ -107,6 +120,11 @@ public abstract class PrimaryLevelDataMixin implements ServerLevelData, WorldDat
     @Override
     public DimensionType bridge$dimensionType() {
         return this.impl$dimensionType;
+    }
+
+    @Override
+    public @Nullable ChunkGenerator bridge$chunkGenerator() {
+        return this.impl$chunkGenerator;
     }
 
     @Override
@@ -141,70 +159,75 @@ public abstract class PrimaryLevelDataMixin implements ServerLevelData, WorldDat
 
     @Override
     public Optional<Boolean> bridge$pvp() {
-        return Optional.ofNullable(this.impl$pvp);
+        return Optional.ofNullable(this.impl$spongeData.configAdapter().get().world.pvpEnabled);
     }
 
     @Override
     public void bridge$setPvp(@Nullable final Boolean pvp) {
-        this.impl$pvp = pvp;
+        this.impl$spongeData.configAdapter().get().world.pvpEnabled = pvp;
     }
 
     @Override
     public boolean bridge$performsSpawnLogic() {
-        return this.impl$performsSpawnLogic;
+        return this.impl$spongeData.configAdapter().get().world.keepSpawnLoaded;
     }
 
     @Override
     public void bridge$setPerformsSpawnLogic(final boolean performsSpawnLogic) {
-        this.impl$performsSpawnLogic = performsSpawnLogic;
+        this.impl$spongeData.configAdapter().get().world.keepSpawnLoaded = performsSpawnLogic;
     }
 
     @Override
     public boolean bridge$loadOnStartup() {
-        return this.impl$loadOnStartup;
+        return this.impl$spongeData.configAdapter().get().world.loadOnStartup;
     }
 
     @Override
     public void bridge$setLoadOnStartup(final boolean loadOnStartup) {
-        this.impl$loadOnStartup = loadOnStartup;
+        this.impl$spongeData.configAdapter().get().world.loadOnStartup = loadOnStartup;
     }
 
     @Override
     public Optional<SerializationBehavior> bridge$serializationBehavior() {
-        return Optional.ofNullable(this.impl$serializationBehavior);
+        return Optional.ofNullable(this.impl$spongeData.configAdapter().get().world.serializationBehavior);
     }
 
     @Override
     public void bridge$setSerializationBehavior(@Nullable final SerializationBehavior behavior) {
-        this.impl$serializationBehavior = behavior;
+        this.impl$spongeData.configAdapter().get().world.serializationBehavior = behavior;
     }
 
     @Override
     public Optional<Component> bridge$displayName() {
-        return Optional.ofNullable(this.impl$displayName);
+        return Optional.ofNullable(this.impl$spongeData.configAdapter().get().world.displayName);
     }
 
     @Override
     public void bridge$setDisplayName(@Nullable final Component displayName) {
-        this.impl$displayName = displayName;
+        this.impl$spongeData.configAdapter().get().world.displayName = displayName;
     }
 
     @Override
     public Optional<Integer> bridge$viewDistance() {
-        return Optional.ofNullable(this.impl$viewDistance);
+        return Optional.ofNullable(this.impl$spongeData.configAdapter().get().world.viewDistance);
     }
 
     @Override
     public void bridge$setViewDistance(@Nullable final Integer viewDistance) {
-        this.impl$viewDistance = viewDistance;
+        this.impl$spongeData.configAdapter().get().world.viewDistance = viewDistance;
         this.bridge$triggerViewDistanceLogic();
     }
 
-    @Override
     public void bridge$populateFromLevelStem(final LevelStem dimension) {
-        final LevelStemBridge bridge = (LevelStemBridge) (Object) dimension;
         this.impl$dimensionType = dimension.type().value();
-        this.impl$displayName = bridge.bridge$displayName();
+        this.impl$chunkGenerator = dimension.generator();
+
+        // Legacy back compat
+        final LevelStemBridge bridge = (LevelStemBridge) (Object) dimension;
+        if (!bridge.bridge$hasLegacyData()) {
+            return;
+        }
+        Optional.ofNullable(bridge.bridge$displayName()).ifPresent(this::bridge$setDisplayName);
         final Difficulty difficulty = bridge.bridge$difficulty();
         final GameType gameType = bridge.bridge$gameMode();
         final Boolean isHardcore = bridge.bridge$hardcore();
@@ -216,13 +239,13 @@ public abstract class PrimaryLevelDataMixin implements ServerLevelData, WorldDat
             this.impl$customGameType = true;
         }
         this.settings = new LevelSettings(
-                this.settings.levelName(),
-                gameType == null ? this.settings.gameType() : gameType,
-                isHardcore == null ? this.settings.hardcore() : isHardcore,
-                difficulty == null ? this.settings.difficulty() : difficulty,
-                allowCommands == null ? this.settings.allowCommands() : allowCommands,
-                this.settings.gameRules(),
-                this.settings.getDataConfiguration());
+            this.settings.levelName(),
+            gameType == null ? this.settings.gameType() : gameType,
+            isHardcore == null ? this.settings.hardcore() : isHardcore,
+            difficulty == null ? this.settings.difficulty() : difficulty,
+            allowCommands == null ? this.settings.allowCommands() : allowCommands,
+            this.settings.gameRules(),
+            this.settings.getDataConfiguration());
 
         final Vector3i spawnPos = bridge.bridge$spawnPosition();
         if (spawnPos != null) {
@@ -230,11 +253,11 @@ public abstract class PrimaryLevelDataMixin implements ServerLevelData, WorldDat
             this.impl$customSpawnPosition = true;
         }
 
-        this.impl$serializationBehavior = bridge.bridge$serializationBehavior();
-        this.impl$pvp = bridge.bridge$pvp();
-        this.impl$loadOnStartup = bridge.bridge$loadOnStartup();
-        this.impl$performsSpawnLogic = bridge.bridge$performsSpawnLogic();
-        this.impl$viewDistance = bridge.bridge$viewDistance();
+        Optional.ofNullable(bridge.bridge$serializationBehavior()).ifPresent(this::bridge$setSerializationBehavior);
+        Optional.ofNullable(bridge.bridge$pvp()).ifPresent(this::bridge$setPvp);
+        this.bridge$setLoadOnStartup(bridge.bridge$loadOnStartup());
+        this.bridge$setPerformsSpawnLogic(bridge.bridge$performsSpawnLogic());
+        this.bridge$setViewDistance(bridge.bridge$viewDistance());
     }
 
     @Override
@@ -289,6 +312,8 @@ public abstract class PrimaryLevelDataMixin implements ServerLevelData, WorldDat
     public void bridge$readSpongeLevelData(final Dynamic<Tag> dynamic) {
         dynamic.get(Constants.Sponge.Data.V2.SPONGE_DATA).get().ifSuccess(v2 -> {
             v2.get(Constants.Sponge.World.UNIQUE_ID).read(UUIDUtil.CODEC).result().ifPresent(this.impl$spongeData::setUniqueId);
+            v2.get(Constants.Sponge.World.WORLD_KEY).read(ResourceLocation.CODEC).result()
+                .map(org.spongepowered.api.ResourceKey.class::cast).ifPresent(this.impl$spongeData::setKey);
 
             v2.get(Constants.Map.MAP_UUID_INDEX).readMap(Codec.STRING, UUIDUtil.CODEC).result().ifPresent(value -> {
                 final BiMap<Integer, UUID> mapIndex = HashBiMap.create();
@@ -314,6 +339,10 @@ public abstract class PrimaryLevelDataMixin implements ServerLevelData, WorldDat
     public CompoundTag bridge$writeSpongeLevelData() {
         final CompoundTag data = new CompoundTag();
         data.putUUID(Constants.Sponge.World.UNIQUE_ID, this.impl$spongeData.uniqueId());
+
+        if (this.impl$spongeData.key() != null) {
+            data.putString(Constants.Sponge.World.WORLD_KEY, this.impl$spongeData.key().formatted());
+        }
 
         // Map Storage
         final CompoundTag mapUUIDIndexTag = new CompoundTag();
@@ -362,5 +391,17 @@ public abstract class PrimaryLevelDataMixin implements ServerLevelData, WorldDat
     @Override
     public void data$setCompound(final CompoundTag nbt) {
         this.impl$compound = nbt;
+    }
+
+    @Redirect(method = "setTagData", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/levelgen/WorldGenSettings;encode(Lcom/mojang/serialization/DynamicOps;Lnet/minecraft/world/level/levelgen/WorldOptions;Lnet/minecraft/core/RegistryAccess;)Lcom/mojang/serialization/DataResult;"))
+    private DataResult<?> impl$onEncodeWorldGenSettings(final DynamicOps<?> $$0, final WorldOptions $$1, final RegistryAccess $$2) {
+        final Map<ResourceKey<LevelStem>, LevelStem> dimensions = $$2.lookupOrThrow(Registries.LEVEL_STEM)
+            .listElements()
+            .collect(Collectors.toMap(Holder.Reference::key, Holder.Reference::value));
+        if (this.impl$dimensionType != null && this.impl$chunkGenerator != null) {
+            dimensions.computeIfAbsent(ResourceKey.create(Registries.LEVEL_STEM, (ResourceLocation) (Object) this.impl$spongeData.key()),
+                $ -> new LevelStem($$2.lookupOrThrow(Registries.DIMENSION_TYPE).wrapAsHolder(this.impl$dimensionType), this.impl$chunkGenerator));
+        }
+        return WorldGenSettings.encode($$0, $$1, new WorldDimensions(dimensions));
     }
 }

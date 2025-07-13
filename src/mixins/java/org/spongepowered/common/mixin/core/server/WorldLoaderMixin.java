@@ -27,41 +27,42 @@ package org.spongepowered.common.mixin.core.server;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.datafixers.util.Pair;
-import net.minecraft.core.LayeredRegistryAccess;
-import net.minecraft.core.RegistryAccess;
-import net.minecraft.server.RegistryLayer;
 import net.minecraft.server.WorldLoader;
 import net.minecraft.server.packs.resources.CloseableResourceManager;
 import net.minecraft.world.level.WorldDataConfiguration;
+import org.spongepowered.api.registry.Registry;
+import org.spongepowered.api.registry.RegistryHolder;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.common.bridge.core.WritableRegistryBridge;
 import org.spongepowered.common.launch.Launch;
+import org.spongepowered.common.launch.Lifecycle;
+
+
 
 @Mixin(WorldLoader.class)
 public abstract class WorldLoaderMixin {
 
-    @ModifyExpressionValue(method = "load", at = @At(value = "INVOKE",
+    @WrapOperation(method = "load", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/server/WorldLoader$PackConfig;createResourceManager()Lcom/mojang/datafixers/util/Pair;"))
-    private static Pair<WorldDataConfiguration, CloseableResourceManager> impl$onCreateResourceManager(final Pair<WorldDataConfiguration, CloseableResourceManager> pair) {
-        Launch.instance().lifecycle().setWorldDataConfiguration(pair.getFirst());
+    private static Pair<WorldDataConfiguration, CloseableResourceManager> impl$onCreateResourceManager(final WorldLoader.PackConfig instance,
+            final Operation<Pair<WorldDataConfiguration, CloseableResourceManager>> original) {
+        final Pair<WorldDataConfiguration, CloseableResourceManager> pair = original.call(instance);
+        final CloseableResourceManager resourceManager = pair.getSecond();
+        final Lifecycle lifecycle = Launch.instance().lifecycle();
+        lifecycle.setWorldDataConfiguration(pair.getFirst());
+        lifecycle.beginEstablishServerRegistries((RegistryHolder) resourceManager);
         return pair;
     }
 
-    @WrapOperation(method = "load", at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/core/LayeredRegistryAccess;getAccessForLoading(Ljava/lang/Object;)Lnet/minecraft/core/RegistryAccess$Frozen;"))
-    private static RegistryAccess.Frozen impl$onGetRegistryAccess(final LayeredRegistryAccess<?> instance, final Object layer, final Operation<RegistryAccess.Frozen> original) {
-        final RegistryAccess.Frozen registryAccess = original.call(instance, layer);
-        final var lifecycle = Launch.instance().lifecycle();
-        lifecycle.establishGlobalRegistries(registryAccess, (RegistryLayer) layer);
-        return registryAccess;
-    }
-
-    @WrapOperation(method = "load", at = @At(value = "INVOKE",
-        target = "Lnet/minecraft/core/LayeredRegistryAccess;replaceFrom(Ljava/lang/Object;[Lnet/minecraft/core/RegistryAccess$Frozen;)Lnet/minecraft/core/LayeredRegistryAccess;"))
-    private static LayeredRegistryAccess<?> impl$afterLoadDimensionRegistries(final LayeredRegistryAccess<?> instance, final Object worldGenLayer, final RegistryAccess.Frozen[] registries, final Operation<LayeredRegistryAccess<?>> original) {
-        final var lifecycle = Launch.instance().lifecycle();
-        lifecycle.establishGlobalRegistries(registries[0], RegistryLayer.DIMENSIONS);
-        return original.call(instance, worldGenLayer, registries);
+    @ModifyExpressionValue(method = "load", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/WorldLoader$WorldDataSupplier;get(Lnet/minecraft/server/WorldLoader$DataLoadContext;)Lnet/minecraft/server/WorldLoader$DataLoadOutput;"))
+    private static WorldLoader.DataLoadOutput<?> impl$onBakedDimensionRegistries(final WorldLoader.DataLoadOutput<?> original,
+            final @Local CloseableResourceManager resourceManager) {
+        original.finalDimensions().registries().forEach(r -> ((WritableRegistryBridge<?>) r.value()).bridge$unfreeze());
+        Launch.instance().lifecycle().processServerRegistries((RegistryHolder) resourceManager, original.finalDimensions().registries().map(e -> (Registry<?>) e.value()));
+        original.finalDimensions().registries().forEach(r -> r.value().freeze());
+        return original;
     }
 }

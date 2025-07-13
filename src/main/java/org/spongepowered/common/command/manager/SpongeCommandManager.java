@@ -62,13 +62,13 @@ import org.spongepowered.api.command.manager.CommandFailedRegistrationException;
 import org.spongepowered.api.command.manager.CommandManager;
 import org.spongepowered.api.command.manager.CommandMapping;
 import org.spongepowered.api.command.registrar.CommandRegistrar;
-import org.spongepowered.api.command.registrar.CommandRegistrarType;
 import org.spongepowered.api.command.registrar.tree.CommandTreeNode;
 import org.spongepowered.api.entity.living.player.server.ServerPlayer;
 import org.spongepowered.api.event.Cause;
 import org.spongepowered.api.event.CauseStackManager;
 import org.spongepowered.api.event.EventContextKeys;
 import org.spongepowered.api.event.SpongeEventFactory;
+import org.spongepowered.api.registry.RegistryHolder;
 import org.spongepowered.api.registry.RegistryTypes;
 import org.spongepowered.api.service.pagination.PaginationService;
 import org.spongepowered.api.service.permission.Subject;
@@ -85,10 +85,10 @@ import org.spongepowered.common.command.registrar.SpongeParameterizedCommandRegi
 import org.spongepowered.common.command.registrar.tree.builder.RootCommandTreeNode;
 import org.spongepowered.common.command.result.SpongeCommandResult;
 import org.spongepowered.common.command.sponge.SpongeCommand;
-import org.spongepowered.common.config.core.SpongeConfigs;
 import org.spongepowered.common.event.lifecycle.RegisterCommandEventImpl;
 import org.spongepowered.common.event.tracking.PhaseTracker;
 import org.spongepowered.common.launch.Launch;
+import org.spongepowered.common.launch.config.core.SpongeConfigs;
 import org.spongepowered.common.service.game.pagination.SpongePaginationService;
 import org.spongepowered.common.util.Constants;
 import org.spongepowered.common.util.PrettyPrinter;
@@ -437,18 +437,17 @@ public abstract class SpongeCommandManager implements CommandManager.Mutable {
         }
     }
 
-    public void init() {
+    public void init(final RegistryHolder registryHolder) {
         final Cause cause = PhaseTracker.getInstance().currentCause();
         final Set<TypeToken<?>> usedTokens = new HashSet<>();
-        Sponge.game().registry(RegistryTypes.COMMAND_REGISTRAR_TYPE).streamEntries().forEach(entry -> {
-            final CommandRegistrarType<?> type = entry.value();
+        registryHolder.registry(RegistryTypes.COMMAND_REGISTRAR_TYPE).stream().forEach(type -> {
             // someone's gonna do it, let's not let them take us down.
             final TypeToken<?> handledType = type.handledType();
             if (handledType == null) {
                 SpongeCommon.logger().error("Registrar '{}' did not provide a handledType, skipping...", type.getClass());
             } else if (usedTokens.add(handledType)) { // we haven't done it yet
                 // Add the command registrar
-                final CommandRegistrar<?> registrar = type.create(this);
+                final CommandRegistrar<?> registrar = type.create(this, registryHolder);
                 this.knownRegistrars.put(GenericTypeReflector.erase(type.handledType().getType()), registrar);
                 if (registrar instanceof BrigadierCommandRegistrar) {
                     this.brigadierRegistrar = (BrigadierCommandRegistrar) registrar;
@@ -456,7 +455,7 @@ public abstract class SpongeCommandManager implements CommandManager.Mutable {
                     this.registerInternalCommands((SpongeParameterizedCommandRegistrar) registrar);
                 }
 
-                this.game.eventManager().post(this.createEvent(cause, this.game, registrar));
+                this.game.eventManager().post(this.createEvent(cause, this.game, registrar, registryHolder));
             } else {
                 SpongeCommon.logger()
                         .warn("Command type '{}' has already been collected, skipping request from {}",
@@ -546,11 +545,12 @@ public abstract class SpongeCommandManager implements CommandManager.Mutable {
         return aliases;
     }
 
-    private <C, R extends CommandRegistrar<C>> RegisterCommandEventImpl<C, R> createEvent(final Cause cause, final Game game, final R registrar) {
+    private <C, R extends CommandRegistrar<C>> RegisterCommandEventImpl<C, R> createEvent(final Cause cause, final Game game, final R registrar, final RegistryHolder registryHolder) {
         return new RegisterCommandEventImpl<>(
                 cause,
                 game,
-                registrar
+                registrar,
+                registryHolder
         );
     }
 

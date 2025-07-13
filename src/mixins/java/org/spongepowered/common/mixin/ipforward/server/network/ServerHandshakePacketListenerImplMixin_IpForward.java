@@ -44,8 +44,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.common.accessor.network.ConnectionAccessor;
 import org.spongepowered.common.accessor.network.protocol.handshake.ClientIntentionPacketAccessor;
 import org.spongepowered.common.bridge.network.ConnectionBridge_IpForward;
-import org.spongepowered.common.config.common.IpForwardingCategory;
-import org.spongepowered.common.config.core.SpongeConfigs;
+import org.spongepowered.common.launch.config.common.IpForwardingCategory;
+import org.spongepowered.common.launch.config.core.SpongeConfigs;
 
 import java.net.InetSocketAddress;
 

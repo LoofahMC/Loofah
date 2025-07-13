@@ -63,6 +63,7 @@ public abstract class BlockEntityMixin_API implements BlockEntity {
     @Shadow @Final private net.minecraft.world.level.block.entity.BlockEntityType<?> type;
     @Shadow protected net.minecraft.world.level.Level level;
     @Shadow protected boolean remove;
+    @Shadow private net.minecraft.world.level.block.state.BlockState blockState;
     @Shadow public abstract BlockPos shadow$getBlockPos();
     @Shadow public abstract CompoundTag shadow$saveWithFullMetadata(HolderLookup.Provider $$0);
     @Shadow @Final protected BlockPos worldPosition;
@@ -179,7 +180,7 @@ public abstract class BlockEntityMixin_API implements BlockEntity {
 
     @Override
     public BlockState block() {
-        return (BlockState) this.level.getBlockState(this.shadow$getBlockPos());
+        return (BlockState) this.blockState;
     }
 
     @Override

@@ -33,15 +33,17 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.spongepowered.api.ResourceKey;
 import org.spongepowered.api.world.server.ServerWorld;
 import org.spongepowered.common.SpongeCommon;
+import org.spongepowered.common.adventure.SpongeAdventure;
 import org.spongepowered.common.bridge.world.level.storage.ServerLevelDataBridge;
-import org.spongepowered.common.config.core.ConfigHandle;
-import org.spongepowered.common.config.core.SpongeConfigs;
 import org.spongepowered.common.config.inheritable.BaseConfig;
 import org.spongepowered.common.config.inheritable.GlobalConfig;
 import org.spongepowered.common.config.inheritable.InheritableConfigHandle;
 import org.spongepowered.common.config.inheritable.WorldConfig;
 import org.spongepowered.common.config.tracker.TrackerConfig;
+import org.spongepowered.common.launch.config.core.ConfigHandle;
+import org.spongepowered.common.launch.config.core.SpongeConfigs;
 import org.spongepowered.common.world.server.SpongeServerLevelData;
+import org.spongepowered.configurate.ConfigurationOptions;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -61,6 +63,8 @@ public final class SpongeGameConfigs {
     private static final Lock initLock = new ReentrantLock();
     private static ConfigHandle<TrackerConfig> trackerConfigAdapter;
     private static volatile InheritableConfigHandle<GlobalConfig> global;
+
+    private static ConfigurationOptions OPTIONS = SpongeConfigs.OPTIONS.serializers(c -> c.registerAll(SpongeAdventure.CONFIGURATE.serializers()));
 
     private SpongeGameConfigs() {
     }
@@ -126,7 +130,7 @@ public final class SpongeGameConfigs {
         }
 
         try {
-            final InheritableConfigHandle<WorldConfig> config = new InheritableConfigHandle<>(WorldConfig.class, BaseConfig::transformation, SpongeConfigs.createLoader(configPath),
+            final InheritableConfigHandle<WorldConfig> config = new InheritableConfigHandle<>(WorldConfig.class, BaseConfig::transformation, SpongeConfigs.createLoader(configPath, SpongeGameConfigs.OPTIONS),
                     SpongeGameConfigs.getGlobalInheritable());
             config.load();
             return config;
@@ -166,7 +170,7 @@ public final class SpongeGameConfigs {
                     try {
                         SpongeGameConfigs.global = new InheritableConfigHandle<>(GlobalConfig.class,
                                 BaseConfig::transformation,
-                                SpongeConfigs.createLoader(SpongeConfigs.getDirectory().resolve(GlobalConfig.FILE_NAME)), null);
+                                SpongeConfigs.createLoader(SpongeConfigs.getDirectory().resolve(GlobalConfig.FILE_NAME), SpongeGameConfigs.OPTIONS), null);
                         SpongeGameConfigs.global.load();
                     } catch (final IOException e) {
                         SpongeGameConfigs.LOGGER.error("Unable to load global world configuration in {}. Sponge will run with default settings",

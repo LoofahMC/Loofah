@@ -31,7 +31,6 @@ import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.codecs.PrimitiveCodec;
 import io.netty.util.AttributeKey;
 import net.kyori.adventure.audience.Audience;
-import net.kyori.adventure.audience.ForwardingAudience;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.serializer.configurate4.ConfigurateComponentSerializer;
@@ -39,23 +38,27 @@ import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.BlockNBTComponent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.ComponentBuilder;
+import net.kyori.adventure.text.ComponentLike;
 import net.kyori.adventure.text.EntityNBTComponent;
 import net.kyori.adventure.text.KeybindComponent;
-import net.kyori.adventure.text.NBTComponent;
 import net.kyori.adventure.text.NBTComponentBuilder;
 import net.kyori.adventure.text.ScoreComponent;
 import net.kyori.adventure.text.SelectorComponent;
 import net.kyori.adventure.text.StorageNBTComponent;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.TranslatableComponent;
+import net.kyori.adventure.text.VirtualComponent;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.DataComponentValue;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.flattener.ComponentFlattener;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.ShadowColor;
 import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.renderer.ComponentRenderer;
+import net.kyori.adventure.text.renderer.TranslatableComponentRenderer;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import net.kyori.adventure.translation.GlobalTranslator;
 import net.kyori.adventure.util.Codec;
@@ -70,8 +73,6 @@ import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.ChatType;
 import net.minecraft.network.chat.ComponentContents;
@@ -97,10 +98,11 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.NotNull;
 import org.spongepowered.api.adventure.ResolveOperation;
 import org.spongepowered.api.adventure.SpongeComponents;
 import org.spongepowered.api.command.CommandCause;
-import org.spongepowered.api.entity.Entity;
+import org.spongepowered.api.entity.living.player.server.ServerPlayer;
 import org.spongepowered.api.registry.DefaultedRegistryReference;
 import org.spongepowered.api.util.Tristate;
 import org.spongepowered.common.SpongeCommon;
@@ -113,9 +115,9 @@ import org.spongepowered.common.bridge.world.BossEventBridge;
 import org.spongepowered.common.launch.Launch;
 
 import java.io.IOException;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -127,6 +129,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public final class SpongeAdventure {
 
@@ -164,13 +167,59 @@ public final class SpongeAdventure {
         }
     };
 
+    public static final ComponentRenderer<SpongeRendererContext> SPONGE_VIRTUAL_COMPONENT_RENDERER = new ComponentRenderer<SpongeRendererContext>() {
+
+        @Override
+        public @NotNull Component render(final @NotNull Component component, final @NotNull SpongeRendererContext context) {
+            if (component instanceof final VirtualComponent virtualComponent) {
+                return this.renderVirtual(virtualComponent, context);
+            }
+            return component;
+        }
+
+        public @NonNull Component renderVirtual(final @NonNull VirtualComponent component, final @NonNull SpongeRendererContext context) {
+            context.markContainsVirtualComponents();
+            if (component.renderer() instanceof final AudienceVirtualComponentRenderer audienceVirtualComponentRenderer
+                && context.audience() != null) {
+                return audienceVirtualComponentRenderer.apply(context.audience()).asComponent();
+            }
+            return component;
+        }
+    };
+
+    public static final ComponentRenderer<SpongeRendererContext> SPONGE_COMPONENT_RENDERER = new TranslatableComponentRenderer<>() {
+
+        @Override
+        protected @NonNull Component renderVirtual(final @NonNull VirtualComponent component, final @NonNull SpongeRendererContext context) {
+            return SpongeAdventure.SPONGE_VIRTUAL_COMPONENT_RENDERER.render(component, context);
+        }
+
+        @Override
+        protected @Nullable MessageFormat translate(final @NonNull String key, final @NonNull SpongeRendererContext context) {
+            return GlobalTranslator.translator().translate(key, context.locale());
+        }
+
+        @Override
+        protected @NonNull Component renderTranslatable(final @NonNull TranslatableComponent component, final @NonNull SpongeRendererContext context) {
+            final TriState anyTranslations = GlobalTranslator.translator().hasAnyTranslations();
+            if (anyTranslations == TriState.TRUE || anyTranslations == TriState.NOT_SET) {
+                final @Nullable Component translated = GlobalTranslator.translator().translate(component, context.locale());
+                return translated != null
+                    ? translated
+                    : super.renderTranslatable(component, context);
+            }
+            return component;
+        }
+    };
+
     public static final ConfigurateComponentSerializer CONFIGURATE = ConfigurateComponentSerializer.builder()
-            .scalarSerializer(GsonComponentSerializer.gson())
-            .build();
+        .scalarSerializer(GsonComponentSerializer.gson())
+        .build();
 
     private static final Set<ServerBossEvent> ACTIVE_BOSS_BARS = ConcurrentHashMap.newKeySet();
 
     public static final ThreadLocal<Locale> ENCODING_LOCALE = new ThreadLocal<>();
+    public static final ThreadLocal<ServerPlayer> ENCODING_PLAYER = new ThreadLocal<>();
 
     // --------------
     // ---- Core ----
@@ -230,7 +279,7 @@ public final class SpongeAdventure {
     }
 
     public static net.minecraft.network.chat.Component asVanilla(final Component component) {
-        return new AdventureTextComponent(component, GlobalTranslator.renderer());
+        return new AdventureTextComponent(component, SpongeAdventure.SPONGE_COMPONENT_RENDERER);
     }
 
     public static Optional<net.minecraft.network.chat.Component> asVanillaOpt(final @Nullable Component component) {
@@ -248,43 +297,35 @@ public final class SpongeAdventure {
     }
 
     private static MutableComponent asVanillaMutable0(final Component component) {
-        if (component instanceof TextComponent) {
-            return net.minecraft.network.chat.Component.literal(((TextComponent) component).content());
-        }
-        if (component instanceof final TranslatableComponent $this) {
-            final List<net.minecraft.network.chat.Component> with = new ArrayList<>($this.args().size());
-            for (final Component arg : $this.args()) {
-                with.add(((ComponentBridge) arg).bridge$asVanillaComponent());
+        return switch (component) {
+            case VirtualComponent virtual -> net.minecraft.network.chat.Component.literal(virtual.content());
+            case TextComponent text -> net.minecraft.network.chat.Component.literal(text.content());
+            case TranslatableComponent translatable -> {
+                final List<net.minecraft.network.chat.Component> with = new ArrayList<>(translatable.arguments().size());
+                for (final Component arg : ComponentLike.asComponents(translatable.arguments())) {
+                    with.add(((ComponentBridge) arg).bridge$asVanillaComponent());
+                }
+                yield net.minecraft.network.chat.Component.translatable(translatable.key(), with.toArray(new Object[0]));
             }
-            return net.minecraft.network.chat.Component.translatable($this.key(), with.toArray(new Object[0]));
-        }
-        if (component instanceof KeybindComponent) {
-            return net.minecraft.network.chat.Component.keybind(((KeybindComponent) component).keybind());
-        }
-        if (component instanceof final ScoreComponent $this) {
-            return net.minecraft.network.chat.Component.score($this.name(), $this.objective());
-        }
-        if (component instanceof final SelectorComponent $this) {
-            return net.minecraft.network.chat.Component.selector(SelectorPattern.parse($this.pattern()).getOrThrow(), SpongeAdventure.asVanillaOpt($this.separator()));
-        }
-        if (component instanceof NBTComponent<?, ?>) {
-            if (component instanceof final BlockNBTComponent $this) {
-                return net.minecraft.network.chat.Component.nbt($this.nbtPath(), $this.interpret(),
-                        SpongeAdventure.asVanillaOpt($this.separator()),
-                        new BlockDataSource($this.pos().asString()));
-            }
-            if (component instanceof final EntityNBTComponent $this) {
-                return net.minecraft.network.chat.Component.nbt($this.nbtPath(), $this.interpret(),
-                        SpongeAdventure.asVanillaOpt($this.separator()),
-                        new EntityDataSource($this.selector()));
-            }
-            if (component instanceof final StorageNBTComponent $this) {
-                return net.minecraft.network.chat.Component.nbt($this.nbtPath(), $this.interpret(),
-                        SpongeAdventure.asVanillaOpt($this.separator()),
-                        new StorageDataSource(SpongeAdventure.asVanilla($this.storage())));
-            }
-        }
-        throw new UnsupportedOperationException("Cannot convert Component of type " + component.getClass());
+            case KeybindComponent keybind -> net.minecraft.network.chat.Component.keybind(keybind.keybind());
+            case ScoreComponent score -> net.minecraft.network.chat.Component.score(score.name(), score.objective());
+            case SelectorComponent selector -> net.minecraft.network.chat.Component.selector(
+                SelectorPattern.parse(selector.pattern()).getOrThrow(), SpongeAdventure.asVanillaOpt(selector.separator())
+            );
+            case BlockNBTComponent block -> net.minecraft.network.chat.Component.nbt(block.nbtPath(), block.interpret(),
+                SpongeAdventure.asVanillaOpt(block.separator()),
+                new BlockDataSource(block.pos().asString()));
+            case EntityNBTComponent entity ->
+                net.minecraft.network.chat.Component.nbt(entity.nbtPath(), entity.interpret(),
+                    SpongeAdventure.asVanillaOpt(entity.separator()),
+                    new EntityDataSource(entity.selector()));
+            case StorageNBTComponent storage ->
+                net.minecraft.network.chat.Component.nbt(storage.nbtPath(), storage.interpret(),
+                    SpongeAdventure.asVanillaOpt(storage.separator()),
+                    new StorageDataSource(SpongeAdventure.asVanilla(storage.storage())));
+            default ->
+                throw new UnsupportedOperationException("Cannot convert Component of type " + component.getClass());
+        };
     }
 
     // no caching
@@ -305,45 +346,40 @@ public final class SpongeAdventure {
     }
 
     private static ComponentBuilder<?, ?> asAdventureBuilder(final ComponentContents contents) {
-        if (contents instanceof final PlainTextContents lc) {
-            if (contents == PlainTextContents.EMPTY) {
-                return Component.empty().toBuilder();
+        return switch (contents) {
+            case PlainTextContents plain -> {
+                if (plain == PlainTextContents.EMPTY) {
+                    yield Component.empty().toBuilder();
+                }
+                yield Component.text().content(plain.text());
             }
-            return Component.text().content(lc.text());
-        }
-        if (contents instanceof final TranslatableContents tc) {
-            final List<Component> argList = Arrays.stream(tc.getArgs())
+            case TranslatableContents tc -> {
+                final List<Component> argList = Arrays.stream(tc.getArgs())
                     .map(arg -> arg instanceof final net.minecraft.network.chat.Component argComponent ?
-                                    SpongeAdventure.asAdventure(argComponent) : Component.text(arg.toString())).toList();
-            return Component.translatable().key(tc.getKey()).args(argList);
-        }
-        if (contents instanceof final KeybindContents kc) {
-            return Component.keybind().keybind(kc.getName());
-        }
-        if (contents instanceof final ScoreContents sc) {
-            return Component.score().name(sc.name().mapLeft(SelectorPattern::pattern).orThrow()).objective(sc.objective());
-        }
-        if (contents instanceof final SelectorContents sc) {
-            return Component.selector().pattern(sc.selector().pattern())
-                                              .separator(SpongeAdventure.asAdventure(sc.separator()));
-        }
-        if (contents instanceof final NbtContents nc) {
-            NBTComponentBuilder<?, ?> nbtBuilder;
-            if (nc.getDataSource() instanceof final BlockDataSource ds) {
-                nbtBuilder = Component.blockNBT().pos(BlockNBTComponent.Pos.fromString(ds.posPattern()));
-            } else if (nc.getDataSource() instanceof final EntityDataSource ds) {
-                nbtBuilder = Component.entityNBT().selector(ds.selectorPattern());
-            } else if (nc.getDataSource() instanceof final StorageDataSource ds) {
-                nbtBuilder = Component.storageNBT().storage(SpongeAdventure.asAdventure(ds.id()));
-            } else {
-                throw new UnsupportedOperationException("Cannot convert NBTContents with DataSource " + nc.getDataSource().getClass());
+                        SpongeAdventure.asAdventure(argComponent) : Component.text(arg.toString())).toList();
+                yield Component.translatable().key(tc.getKey()).arguments(argList);
             }
-            return nbtBuilder.nbtPath(nc.getNbtPath())
-                                    .interpret(nc.isInterpreting())
-                                    .separator(SpongeAdventure.asAdventure(nc.getSeparator()));
-        }
-
-        throw new UnsupportedOperationException("Cannot convert ComponentContents of type " + contents.getClass());
+            case KeybindContents kc -> Component.keybind().keybind(kc.getName());
+            case ScoreContents sc ->
+                Component.score().name(sc.name().mapLeft(SelectorPattern::pattern).orThrow()).objective(sc.objective());
+            case SelectorContents sc ->
+                Component.selector().pattern(sc.selector().pattern()).separator(SpongeAdventure.asAdventure(sc.separator()));
+            case NbtContents nbt -> {
+                final NBTComponentBuilder<?, ?> nbtBuilder = switch (nbt.getDataSource()) {
+                    case BlockDataSource bds ->
+                        Component.blockNBT().pos(BlockNBTComponent.Pos.fromString(bds.posPattern()));
+                    case EntityDataSource eds -> Component.entityNBT().selector(eds.selectorPattern());
+                    case StorageDataSource sds -> Component.storageNBT().storage(SpongeAdventure.asAdventure(sds.id()));
+                    default ->
+                        throw new UnsupportedOperationException("Cannot convert NBTContents with DataSource " + nbt.getDataSource().getClass());
+                };
+                yield nbtBuilder.nbtPath(nbt.getNbtPath())
+                    .interpret(nbt.isInterpreting())
+                    .separator(SpongeAdventure.asAdventure(nbt.getSeparator()));
+            }
+            default ->
+                throw new UnsupportedOperationException("Cannot convert ComponentContents of type " + contents.getClass());
+        };
     }
 
     public static @Nullable Component asAdventure(final Optional<net.minecraft.network.chat.Component> component) {
@@ -352,7 +388,7 @@ public final class SpongeAdventure {
 
     // no caching
     public static Style asAdventure(final net.minecraft.network.chat.Style mcStyle) {
-        final net.kyori.adventure.text.format.Style.Builder builder = net.kyori.adventure.text.format.Style.style();
+        final Style.Builder builder = Style.style();
         final StyleAccessor $access = (StyleAccessor) mcStyle;
 
         builder.font(SpongeAdventure.asAdventure($access.accessor$font())); // font
@@ -455,38 +491,24 @@ public final class SpongeAdventure {
         if (color == null) {
             return null;
         }
-        if (color == ChatFormatting.BLACK) {
-            return NamedTextColor.BLACK;
-        } else if (color == ChatFormatting.DARK_BLUE) {
-            return NamedTextColor.DARK_BLUE;
-        } else if (color == ChatFormatting.DARK_GREEN) {
-            return NamedTextColor.DARK_GREEN;
-        } else if (color == ChatFormatting.DARK_AQUA) {
-            return NamedTextColor.DARK_AQUA;
-        } else if (color == ChatFormatting.DARK_RED) {
-            return NamedTextColor.DARK_RED;
-        } else if (color == ChatFormatting.DARK_PURPLE) {
-            return NamedTextColor.DARK_PURPLE;
-        } else if (color == ChatFormatting.GOLD) {
-            return NamedTextColor.GOLD;
-        } else if (color == ChatFormatting.GRAY) {
-            return NamedTextColor.GRAY;
-        } else if (color == ChatFormatting.DARK_GRAY) {
-            return NamedTextColor.DARK_GRAY;
-        } else if (color == ChatFormatting.BLUE) {
-            return NamedTextColor.BLUE;
-        } else if (color == ChatFormatting.GREEN) {
-            return NamedTextColor.GREEN;
-        } else if (color == ChatFormatting.AQUA) {
-            return NamedTextColor.AQUA;
-        } else if (color == ChatFormatting.RED) {
-            return NamedTextColor.RED;
-        } else if (color == ChatFormatting.LIGHT_PURPLE) {
-            return NamedTextColor.LIGHT_PURPLE;
-        } else if (color == ChatFormatting.YELLOW) {
-            return NamedTextColor.YELLOW;
-        }
-        return NamedTextColor.WHITE;
+        return switch (color) {
+            case BLACK -> NamedTextColor.BLACK;
+            case DARK_BLUE -> NamedTextColor.DARK_BLUE;
+            case DARK_GREEN -> NamedTextColor.DARK_GREEN;
+            case DARK_AQUA -> NamedTextColor.DARK_AQUA;
+            case DARK_RED -> NamedTextColor.DARK_RED;
+            case DARK_PURPLE -> NamedTextColor.DARK_PURPLE;
+            case GOLD -> NamedTextColor.GOLD;
+            case GRAY -> NamedTextColor.GRAY;
+            case DARK_GRAY -> NamedTextColor.DARK_GRAY;
+            case BLUE -> NamedTextColor.BLUE;
+            case GREEN -> NamedTextColor.GREEN;
+            case AQUA -> NamedTextColor.AQUA;
+            case RED -> NamedTextColor.RED;
+            case LIGHT_PURPLE -> NamedTextColor.LIGHT_PURPLE;
+            case YELLOW -> NamedTextColor.YELLOW;
+            default -> NamedTextColor.WHITE; // White color is also just defaulting to white
+        };
     }
 
     public static @Nullable Boolean asVanillaNullable(final TextDecoration.State state) {
@@ -622,15 +644,6 @@ public final class SpongeAdventure {
         return components;
     }
 
-    public static ListTag listTagJson(final List<Component> components) {
-        final GsonComponentSerializer gcs = GsonComponentSerializer.gson();
-        final ListTag nbt = new ListTag();
-        for (final Component component : components) {
-            nbt.add(StringTag.valueOf(gcs.serialize(component)));
-        }
-        return nbt;
-    }
-
     // -----------------
     // ---- BossBar ----
     // -----------------
@@ -644,38 +657,38 @@ public final class SpongeAdventure {
     }
 
     public static BossEvent.BossBarColor asVanilla(final BossBar.Color color) {
-        if(color == BossBar.Color.PINK) {
+        if (color == BossBar.Color.PINK) {
             return BossEvent.BossBarColor.PINK;
-        } else if(color == BossBar.Color.BLUE) {
+        } else if (color == BossBar.Color.BLUE) {
             return BossEvent.BossBarColor.BLUE;
-        } else if(color == BossBar.Color.RED) {
+        } else if (color == BossBar.Color.RED) {
             return BossEvent.BossBarColor.RED;
-        } else if(color == BossBar.Color.GREEN) {
+        } else if (color == BossBar.Color.GREEN) {
             return BossEvent.BossBarColor.GREEN;
-        } else if(color == BossBar.Color.YELLOW) {
+        } else if (color == BossBar.Color.YELLOW) {
             return BossEvent.BossBarColor.YELLOW;
-        } else if(color == BossBar.Color.PURPLE) {
+        } else if (color == BossBar.Color.PURPLE) {
             return BossEvent.BossBarColor.PURPLE;
-        } else if(color == BossBar.Color.WHITE) {
+        } else if (color == BossBar.Color.WHITE) {
             return BossEvent.BossBarColor.WHITE;
         }
         throw new IllegalArgumentException(color.name());
     }
 
     public static BossBar.Color asAdventure(final BossEvent.BossBarColor color) {
-        if(color == BossEvent.BossBarColor.PINK) {
+        if (color == BossEvent.BossBarColor.PINK) {
             return BossBar.Color.PINK;
-        } else if(color == BossEvent.BossBarColor.BLUE) {
+        } else if (color == BossEvent.BossBarColor.BLUE) {
             return BossBar.Color.BLUE;
-        } else if(color == BossEvent.BossBarColor.RED) {
+        } else if (color == BossEvent.BossBarColor.RED) {
             return BossBar.Color.RED;
-        } else if(color == BossEvent.BossBarColor.GREEN) {
+        } else if (color == BossEvent.BossBarColor.GREEN) {
             return BossBar.Color.GREEN;
-        } else if(color == BossEvent.BossBarColor.YELLOW) {
+        } else if (color == BossEvent.BossBarColor.YELLOW) {
             return BossBar.Color.YELLOW;
-        } else if(color == BossEvent.BossBarColor.PURPLE) {
+        } else if (color == BossEvent.BossBarColor.PURPLE) {
             return BossBar.Color.PURPLE;
-        } else if(color == BossEvent.BossBarColor.WHITE) {
+        } else if (color == BossEvent.BossBarColor.WHITE) {
             return BossBar.Color.WHITE;
         }
         throw new IllegalArgumentException(color.name());
@@ -725,15 +738,15 @@ public final class SpongeAdventure {
         return flags;
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
+    @SuppressWarnings({"rawtypes", "unchecked" })
     public static DataComponentPatch asVanilla(final Map<Key, DataComponentValue> componentMap) {
         if (componentMap == null) {
             return DataComponentPatch.EMPTY;
         }
         final DataComponentPatch.Builder builder = DataComponentPatch.builder();
         componentMap.forEach((key, value) -> BuiltInRegistries.DATA_COMPONENT_TYPE.getOptional(SpongeAdventure.asVanilla(key)).ifPresent(type -> {
-            if (value instanceof SpongeDataComponentValue dcv) {
-                builder.set((DataComponentType) type, dcv.value.orElse(null));
+            if (value instanceof SpongeDataComponentValue(Optional value1)) {
+                builder.set((DataComponentType) type, value1.orElse(null));
             }
         }));
         return builder.build();
@@ -750,6 +763,14 @@ public final class SpongeAdventure {
             map.put(SpongeAdventure.asAdventure(key), new SpongeDataComponentValue<>(entry.getValue()));
         });
         return map;
+    }
+
+    public static @Nullable Integer asVanillaNullable(@Nullable ShadowColor shadowColor) {
+        if (shadowColor == null) {
+            return null;
+        }
+
+        return shadowColor.value();
     }
 
     private record SpongeDataComponentValue<T>(Optional<T> value) implements DataComponentValue {
@@ -775,35 +796,33 @@ public final class SpongeAdventure {
     // Sound
 
     public static Sound.Source asAdventure(final SoundSource source) {
-        switch (source) {
-            case MASTER: return Sound.Source.MASTER;
-            case MUSIC: return Sound.Source.MUSIC;
-            case RECORDS: return Sound.Source.RECORD;
-            case WEATHER: return Sound.Source.WEATHER;
-            case BLOCKS: return Sound.Source.BLOCK;
-            case HOSTILE: return Sound.Source.HOSTILE;
-            case NEUTRAL: return Sound.Source.NEUTRAL;
-            case PLAYERS: return Sound.Source.PLAYER;
-            case AMBIENT: return Sound.Source.AMBIENT;
-            case VOICE: return Sound.Source.VOICE;
-        }
-        throw new IllegalArgumentException(source.name());
+        return switch (source) {
+            case MASTER -> Sound.Source.MASTER;
+            case MUSIC -> Sound.Source.MUSIC;
+            case RECORDS -> Sound.Source.RECORD;
+            case WEATHER -> Sound.Source.WEATHER;
+            case BLOCKS -> Sound.Source.BLOCK;
+            case HOSTILE -> Sound.Source.HOSTILE;
+            case NEUTRAL -> Sound.Source.NEUTRAL;
+            case PLAYERS -> Sound.Source.PLAYER;
+            case AMBIENT -> Sound.Source.AMBIENT;
+            case VOICE -> Sound.Source.VOICE;
+        };
     }
 
     public static SoundSource asVanilla(final Sound.Source source) {
-        switch (source) {
-            case MASTER: return SoundSource.MASTER;
-            case MUSIC: return SoundSource.MUSIC;
-            case RECORD: return SoundSource.RECORDS;
-            case WEATHER: return SoundSource.WEATHER;
-            case BLOCK: return SoundSource.BLOCKS;
-            case HOSTILE: return SoundSource.HOSTILE;
-            case NEUTRAL: return SoundSource.NEUTRAL;
-            case PLAYER: return SoundSource.PLAYERS;
-            case AMBIENT: return SoundSource.AMBIENT;
-            case VOICE: return SoundSource.VOICE;
-        }
-        throw new IllegalArgumentException(source.name());
+        return switch (source) {
+            case MASTER -> SoundSource.MASTER;
+            case MUSIC -> SoundSource.MUSIC;
+            case RECORD -> SoundSource.RECORDS;
+            case WEATHER -> SoundSource.WEATHER;
+            case BLOCK -> SoundSource.BLOCKS;
+            case HOSTILE -> SoundSource.HOSTILE;
+            case NEUTRAL -> SoundSource.NEUTRAL;
+            case PLAYER -> SoundSource.PLAYERS;
+            case AMBIENT -> SoundSource.AMBIENT;
+            case VOICE -> SoundSource.VOICE;
+        };
     }
 
     public static @Nullable SoundSource asVanillaNullable(final Sound.@Nullable Source source) {
@@ -811,17 +830,6 @@ public final class SpongeAdventure {
             return null;
         }
         return SpongeAdventure.asVanilla(source);
-    }
-
-    public static Iterable<? extends Audience> unpackAudiences(final Audience audience) {
-        if (audience instanceof ForwardingAudience) {
-            final List<Audience> list = new ArrayList<>();
-            for (final Audience subAudience : ((ForwardingAudience) audience).audiences()) {
-                SpongeAdventure.unpackAudiences(subAudience).forEach(list::add);
-            }
-            return list;
-        }
-        return Collections.singletonList(audience);
     }
 
     public static class Factory implements SpongeComponents.Factory {
@@ -837,29 +845,18 @@ public final class SpongeAdventure {
         public final @NonNull Component render(
             final @NonNull Component component,
             final @NonNull CommandCause senderContext,
-            @Nullable Audience viewer,
+            final @NonNull Audience viewer,
             final @NonNull DefaultedRegistryReference<ResolveOperation> firstOperation,
-            final @NonNull DefaultedRegistryReference<ResolveOperation>@NonNull... otherOperations
+            final @NonNull DefaultedRegistryReference<ResolveOperation> @NonNull ... otherOperations
         ) {
             Component output = Objects.requireNonNull(component, "component");
             Objects.requireNonNull(senderContext, "senderContext");
 
-            // Unwrap the Audience to an entity
-            while (viewer instanceof ForwardingAudience.Single && !(viewer instanceof Entity)) {
-                viewer = ((ForwardingAudience.Single) viewer).audience();
-            }
-            final Entity backing;
-            if (viewer instanceof Entity) {
-                backing = (Entity) viewer;
-            } else {
-                backing = null;
-            }
-
             output = ((SpongeResolveOperation) Objects.requireNonNull(firstOperation, "firstOperation").get())
-                .resolve(output, senderContext, backing);
+                .resolve(output, senderContext, viewer);
 
             for (final DefaultedRegistryReference<ResolveOperation> ref : otherOperations) {
-                output = ((SpongeResolveOperation) ref.get()).resolve(output, senderContext, backing);
+                output = ((SpongeResolveOperation) ref.get()).resolve(output, senderContext, viewer);
             }
             return output;
         }
@@ -870,7 +867,7 @@ public final class SpongeAdventure {
             final @NonNull Component component,
             final @NonNull CommandCause senderContext,
             final @NonNull DefaultedRegistryReference<ResolveOperation> firstOperation,
-            final @NonNull DefaultedRegistryReference<ResolveOperation>@NonNull... otherOperations
+            final @NonNull DefaultedRegistryReference<ResolveOperation> @NonNull ... otherOperations
         ) {
             return this.render(component, senderContext, null, firstOperation, otherOperations);
         }
@@ -878,6 +875,11 @@ public final class SpongeAdventure {
         @Override
         public ComponentFlattener flattener() {
             return ComponentFlattenerProvider.INSTANCE;
+        }
+
+        @Override
+        public VirtualComponent receiverVirtualComponent(final @NonNull Function<Audience, ComponentLike> apply, final @NonNull String fallbackValue) {
+            return Component.virtual(Audience.class, new AudienceVirtualComponentRenderer(apply, fallbackValue));
         }
     }
 

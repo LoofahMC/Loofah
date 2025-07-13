@@ -25,6 +25,7 @@
 package org.spongepowered.common.data.provider.block.state;
 
 import net.minecraft.world.level.block.piston.MovingPistonBlock;
+import net.minecraft.world.level.block.piston.PistonMovingBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.api.data.Keys;
 import org.spongepowered.common.data.provider.DataProviderRegistrator;
@@ -42,7 +43,13 @@ public final class MovingPistonData {
                     .create(Keys.DIRECTION)
                         .get(h -> DirectionUtil.getFor(h.getValue(MovingPistonBlock.FACING)))
                         .set((h, v) -> DirectionUtil.set(h, v, MovingPistonBlock.FACING))
-                        .supports(h -> h.getBlock() instanceof MovingPistonBlock);
+                        .supports(h -> h.getBlock() instanceof MovingPistonBlock)
+                .asImmutable(PistonMovingBlockEntity.class)
+                    .create(Keys.BLOCK_STATE)
+                    .get(h -> (org.spongepowered.api.block.BlockState) h.getMovedState())
+                    .create(Keys.IS_EXTENDED)
+                    .get(PistonMovingBlockEntity::isExtending)
+        ;
     }
     // @formatter:on
 }

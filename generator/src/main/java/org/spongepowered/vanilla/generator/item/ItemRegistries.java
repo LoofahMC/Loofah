@@ -127,7 +127,7 @@ public class ItemRegistries {
                 "data.type",
                 "ArmorMaterials",
                 ArmorMaterials.class,
-                (s) -> ResourceLocation.withDefaultNamespace(s.toLowerCase(Locale.ROOT).replace("_scute", ""))
+                (s) -> ResourceLocation.withDefaultNamespace(s.toLowerCase(Locale.ROOT))
             )
         );
     }

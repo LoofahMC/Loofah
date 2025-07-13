@@ -29,15 +29,20 @@ import org.spongepowered.api.ResourceKey;
 import org.spongepowered.api.Server;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.event.Listener;
+import org.spongepowered.api.event.lifecycle.FreezeRegistryEvent;
 import org.spongepowered.api.event.lifecycle.RegisterRegistryEvent;
 import org.spongepowered.api.event.lifecycle.RegisterRegistryValueEvent;
 import org.spongepowered.api.event.lifecycle.StartingEngineEvent;
+import org.spongepowered.api.item.ItemTypes;
 import org.spongepowered.api.registry.DefaultedRegistryReference;
 import org.spongepowered.api.registry.DefaultedRegistryType;
 import org.spongepowered.api.registry.RegistryKey;
 import org.spongepowered.api.registry.RegistryRoots;
 import org.spongepowered.api.registry.RegistryType;
+import org.spongepowered.api.registry.RegistryTypes;
 import org.spongepowered.plugin.builtin.jvm.Plugin;
+
+import java.util.Map;
 
 @Plugin("customregistrytest")
 public final class CustomRegistryTest {
@@ -59,12 +64,15 @@ public final class CustomRegistryTest {
 
     @Listener
     public void onRegisterRegistryGameScoped(final RegisterRegistryEvent.GameScoped event) {
-        event.register(GAME_REG_KEY, true);
+        event.register(GAME_REG_KEY, true, (h) -> {
+            ItemTypes.BEDROCK.get(h);
+            return Map.of();
+        }, RegistryTypes.ITEM_TYPE);
     }
 
     @Listener
     public void onRegisterRegistryValuesGameScoped(final RegisterRegistryValueEvent.GameScoped event) {
-        event.registry(GAME_CUSTOM_REGISTRY).register(GAME_CUSTOM_VALUE.location(), 10);
+        event.registry(GAME_CUSTOM_REGISTRY, (h, r) -> r.register(GAME_CUSTOM_VALUE.location(), 10), RegistryTypes.ITEM_TYPE);
     }
 
     @Listener
@@ -74,7 +82,7 @@ public final class CustomRegistryTest {
 
     @Listener
     public void onRegisterRegistryValuesServerScoped(final RegisterRegistryValueEvent.EngineScoped<Server> event) {
-        event.registry(SERVER_CUSTOM_REGISTRY).register(SERVER_CUSTOM_VALUE.location(), 5);
+        event.registry(SERVER_CUSTOM_REGISTRY, r -> r.register(SERVER_CUSTOM_VALUE.location(), 5));
     }
 
     @Listener
@@ -84,7 +92,22 @@ public final class CustomRegistryTest {
 
     @Listener
     public void onRegisterRegistryValuesClientScoped(final RegisterRegistryValueEvent.EngineScoped<Client> event) {
-        event.registry(CLIENT_CUSTOM_REGISTRY).register(CLIENT_CUSTOM_VALUE.location(), 3);
+        event.registry(CLIENT_CUSTOM_REGISTRY, r -> r.register(CLIENT_CUSTOM_VALUE.location(), 3));
+    }
+
+    @Listener
+    public void onRegisterFreezeGameScoped(final FreezeRegistryEvent.Post.GameScoped event) {
+        final int gameValue = GAME_CUSTOM_VALUE.get(event.holder());
+    }
+
+    @Listener
+    public void onRegisterFreezeServerScoped(final FreezeRegistryEvent.Post.EngineScoped<Server> event) {
+        final int serverValue = SERVER_CUSTOM_VALUE.get(event.holder());
+    }
+
+    @Listener
+    public void onRegisterFreezeClientScoped(final FreezeRegistryEvent.Post.EngineScoped<Client> event) {
+        final int clientValue = CLIENT_CUSTOM_VALUE.get(event.holder());
     }
 
     @Listener

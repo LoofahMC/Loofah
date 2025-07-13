@@ -24,21 +24,26 @@
  */
 package org.spongepowered.common.registry;
 
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.Registry;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.world.flag.FeatureFlagSet;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.spongepowered.api.ResourceKey;
 import org.spongepowered.api.registry.RegistryHolder;
 import org.spongepowered.api.registry.RegistryType;
+import org.spongepowered.common.bridge.core.WritableRegistryBridge;
 
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-public interface SpongeRegistryHolder extends RegistryHolder {
+public interface SpongeRegistryHolder extends RegistryHolder, HolderLookup.Provider {
 
     RegistryHolderLogic registryHolder();
 
@@ -46,14 +51,25 @@ public interface SpongeRegistryHolder extends RegistryHolder {
         this.registryHolder().setRootMinecraftRegistry(registry);
     }
 
+    default void setRootMinecraftRegistry(RegistryAccess registryAccess) {
+        this.registryHolder().setRootMinecraftRegistry(registryAccess);
+    }
+
     default <T> org.spongepowered.api.registry.Registry<T> createRegistry(final RegistryType<T> type, final @Nullable InitialRegistryData<T> defaultValues,
-        final boolean isDynamic, final @Nullable BiConsumer<net.minecraft.resources.ResourceKey<T>, T> callback, final boolean replace) {
-        return this.registryHolder().createRegistry(type, defaultValues, this.registryHolder().registrySupplier(isDynamic, callback), replace);
+        final boolean isDynamic, final @Nullable BiConsumer<net.minecraft.resources.ResourceKey<T>, T> callback) {
+        return this.registryHolder().createRegistry(type, defaultValues, this.registryHolder().registrySupplier(isDynamic, callback));
     }
 
     default <T> org.spongepowered.api.registry.Registry<T> createRegistry(final RegistryType<T> type, final @Nullable Supplier<Map<ResourceKey, T>> defaultValues,
         final boolean isDynamic) {
-        return this.createRegistry(type, InitialRegistryData.noIds(defaultValues), isDynamic, null, false);
+        return this.createRegistry(type, InitialRegistryData.noIds(defaultValues), isDynamic, null);
+    }
+
+    default <T> org.spongepowered.api.registry.Registry<T> createRegistry(final RegistryType<T> type, final @Nullable Function<RegistryHolder, Map<ResourceKey, T>> defaultValues,
+            final boolean isDynamic, final RegistryType<?>... dependencies) {
+        final org.spongepowered.api.registry.Registry<T> registry = this.createRegistry(type, (RegistryLoader<T>) null, isDynamic, null);
+        ((WritableRegistryBridge<T>) registry).bridge$addDependencies(() -> InitialRegistryData.noIds(() -> defaultValues.apply(this.registryHolder())), dependencies);
+        return registry;
     }
 
     default <T> org.spongepowered.api.registry.Registry<T> createRegistry(final RegistryType<T> type, final RegistryLoader<T> loader) {
@@ -68,17 +84,21 @@ public interface SpongeRegistryHolder extends RegistryHolder {
         return registry;
     }
 
-    default <T> org.spongepowered.api.registry.Registry<T> createOrReplaceFrozenRegistry(final RegistryType<T> type, final RegistryLoader<T> loader) {
-        final org.spongepowered.api.registry.Registry<T> registry = this.createRegistry(type, loader, false, null, true);
-        if (registry instanceof MappedRegistry<?> toFreeze) {
-            toFreeze.freeze();
-        }
+    default <T> org.spongepowered.api.registry.Registry<T> createFrozenRegistry(final RegistryType<T> type,
+            final Function<RegistryHolder, InitialRegistryData<T>> loader, final RegistryType<?>... dependencies) {
+        final org.spongepowered.api.registry.Registry<T> registry = this.createRegistry(type, (RegistryLoader<T>) null, false);
+        ((WritableRegistryBridge<T>) registry).bridge$addDependencies(() -> loader.apply(this.registryHolder()), dependencies);
         return registry;
     }
 
     default <T> org.spongepowered.api.registry.Registry<T> createRegistry(final RegistryType<T> type, final RegistryLoader<T> loader,
         final boolean isDynamic) {
-        return this.createRegistry(type, loader, isDynamic, null, false);
+        return this.createRegistry(type, loader, isDynamic, null);
+    }
+
+    @Override
+    default Stream<org.spongepowered.api.registry.Registry<?>> streamRegistries() {
+        return this.registryHolder().streamRegistries();
     }
 
     @Override
@@ -94,5 +114,20 @@ public interface SpongeRegistryHolder extends RegistryHolder {
     @Override
     default <T> org.spongepowered.api.registry.Registry<T> registry(final RegistryType<T> type) {
         return this.registryHolder().registry(Objects.requireNonNull(type, "type"));
+    }
+
+    default FeatureFlagSet featureFlagSet() {
+        return this.registryHolder().featureFlagSet();
+    }
+
+    @Override
+    default Stream<net.minecraft.resources.ResourceKey<? extends net.minecraft.core.Registry<?>>> listRegistryKeys() {
+        return this.registryHolder().listRegistryKeys();
+    }
+
+    @Override
+    default <T> Optional<? extends HolderLookup.RegistryLookup<T>> lookup(
+            final net.minecraft.resources.ResourceKey<? extends net.minecraft.core.Registry<? extends T>> resourceKey) {
+        return this.registryHolder().lookup(resourceKey);
     }
 }

@@ -29,8 +29,8 @@ import net.minecraft.network.protocol.handshake.ClientIntentionPacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.common.config.common.IpForwardingCategory;
-import org.spongepowered.common.config.core.SpongeConfigs;
+import org.spongepowered.common.launch.config.common.IpForwardingCategory;
+import org.spongepowered.common.launch.config.core.SpongeConfigs;
 
 @Mixin(ClientIntentionPacket.class)
 public abstract class ClientIntentionPacketMixin_IpForward {

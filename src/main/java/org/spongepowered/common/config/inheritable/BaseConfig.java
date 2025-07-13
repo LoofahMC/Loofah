@@ -24,7 +24,7 @@
  */
 package org.spongepowered.common.config.inheritable;
 
-import org.spongepowered.common.config.core.Config;
+import org.spongepowered.common.launch.config.core.Config;
 import org.spongepowered.configurate.NodePath;
 import org.spongepowered.configurate.objectmapping.meta.Comment;
 import org.spongepowered.configurate.objectmapping.meta.Setting;

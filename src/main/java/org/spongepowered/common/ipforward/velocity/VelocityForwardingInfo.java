@@ -46,7 +46,7 @@ import org.spongepowered.common.accessor.network.ConnectionAccessor;
 import org.spongepowered.common.accessor.server.network.ServerLoginPacketListenerImplAccessor;
 import org.spongepowered.common.bridge.network.ConnectionBridge;
 import org.spongepowered.common.bridge.network.ServerLoginPacketListenerImplBridge;
-import org.spongepowered.common.config.core.SpongeConfigs;
+import org.spongepowered.common.launch.config.core.SpongeConfigs;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;

@@ -26,7 +26,6 @@ package org.spongepowered.vanilla.generator.world.level.block;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.Explosion;
-import net.minecraft.world.level.block.CreakingHeartBlock;
 import net.minecraft.world.level.block.entity.trialspawner.TrialSpawnerState;
 import net.minecraft.world.level.block.state.properties.BambooLeaves;
 import net.minecraft.world.level.block.state.properties.DripstoneThickness;
@@ -120,13 +119,6 @@ public class BlockRegistries {
                 Registries.BANNER_PATTERN,
                 $ -> true,
                 RegistryScope.SERVER
-            ),
-            new EnumEntriesValidator<>(
-                "data.type",
-                "CreakingHearts",
-                CreakingHeartBlock.CreakingHeartState.class,
-                "getSerializedName",
-                "sponge"
             ),
             new EnumEntriesValidator<>(
                 "world.explosion",

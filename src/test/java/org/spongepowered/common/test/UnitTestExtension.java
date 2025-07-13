@@ -29,8 +29,8 @@ import net.minecraft.SharedConstants;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.spongepowered.common.applaunch.AppLaunch;
-import org.spongepowered.common.config.core.SpongeConfigs;
 import org.spongepowered.common.launch.Launch;
+import org.spongepowered.common.launch.config.core.SpongeConfigs;
 
 public class UnitTestExtension implements BeforeAllCallback {
     @Override

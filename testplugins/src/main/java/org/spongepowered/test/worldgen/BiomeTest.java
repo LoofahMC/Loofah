@@ -35,15 +35,13 @@ import org.spongepowered.api.command.CommandResult;
 import org.spongepowered.api.command.parameter.CommandContext;
 import org.spongepowered.api.command.parameter.Parameter;
 import org.spongepowered.api.data.Keys;
-import org.spongepowered.api.datapack.DataPackTypes;
-import org.spongepowered.api.datapack.DataPacks;
 import org.spongepowered.api.effect.particle.ParticleTypes;
 import org.spongepowered.api.effect.sound.SoundTypes;
 import org.spongepowered.api.entity.EntityCategories;
+import org.spongepowered.api.event.lifecycle.RegisterRegistryValueEvent;
 import org.spongepowered.api.registry.Registry;
 import org.spongepowered.api.registry.RegistryTypes;
 import org.spongepowered.api.world.biome.Biome;
-import org.spongepowered.api.world.biome.BiomeTemplate;
 import org.spongepowered.api.world.biome.Biomes;
 import org.spongepowered.api.world.biome.ambient.ParticleConfig;
 import org.spongepowered.api.world.biome.ambient.SoundConfig;
@@ -51,7 +49,6 @@ import org.spongepowered.api.world.biome.spawner.NaturalSpawner;
 import org.spongepowered.api.world.generation.feature.DecorationSteps;
 import org.spongepowered.api.world.generation.feature.FeatureType;
 import org.spongepowered.api.world.generation.feature.PlacedFeatures;
-import org.spongepowered.api.world.server.DataPackManager;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -102,28 +99,26 @@ public final class BiomeTest {
         return CommandResult.success();
     }
 
-    private CommandResult register(CommandContext commandContext) {
-        final Biome defaultBiome = Biomes.PLAINS.get(Sponge.server());
-        final List<NaturalSpawner> naturalSpawners = defaultBiome.spawners().get(EntityCategories.MONSTER.get());
-        Collections.shuffle(naturalSpawners);
-        final List<NaturalSpawner> spawner = Arrays.asList(naturalSpawners.get(0));
+    public void register(final RegisterRegistryValueEvent event) {
+        event.registry(RegistryTypes.BIOME, (h, s) -> {
+            final Biome defaultBiome = Biomes.PLAINS.get(h);
+            final List<NaturalSpawner> naturalSpawners = defaultBiome.spawners().get(EntityCategories.MONSTER.get());
+            Collections.shuffle(naturalSpawners);
+            final List<NaturalSpawner> spawner = Arrays.asList(naturalSpawners.get(0));
 
-        final BiomeTemplate template = BiomeTemplate.builder().fromValue(defaultBiome)
-                .add(Keys.FEATURES, Map.of(DecorationSteps.LAKES.get(), List.of(PlacedFeatures.LAKE_LAVA_SURFACE.get())))
+            s.register(ResourceKey.of(NAMESPACE, CUSTOM_PLAINS), Biome.builder().from(defaultBiome)
+                .add(Keys.FEATURES, Map.of(DecorationSteps.LAKES.get(), List.of(PlacedFeatures.LAKE_LAVA_SURFACE.get(h))))
                 .add(Keys.CARVERS, List.of())
                 .add(Keys.NATURAL_SPAWNERS, Map.of(EntityCategories.MONSTER.get(), spawner))
-                .add(Keys.AMBIENT_ADDITIONAL_SOUND, SoundConfig.factory().ofAdditional(SoundTypes.ENTITY_CREEPER_PRIMED.get(), 0.001))
-                .add(Keys.AMBIENT_PARTICLE, ParticleConfig.of(ParticleTypes.BUBBLE.get(), 0.01f))
-                .key(ResourceKey.of(NAMESPACE, CUSTOM_PLAINS)).build();
-        Sponge.server().dataPackManager().save(template);
+                .add(Keys.AMBIENT_ADDITIONAL_SOUND, SoundConfig.factory().ofAdditional(SoundTypes.ENTITY_CREEPER_PRIMED.get(h), 0.001))
+                .add(Keys.AMBIENT_PARTICLE, ParticleConfig.of(ParticleTypes.BUBBLE.get(h), 0.01f))
+                .build());
 
-        final Biome defaultBiome2 = Biomes.FLOWER_FOREST.get(Sponge.server());
-        final BiomeTemplate template2 = BiomeTemplate.builder().fromValue(defaultBiome2)
+            final Biome defaultBiome2 = Biomes.FLOWER_FOREST.get(h);
+            s.register(ResourceKey.of(NAMESPACE, CUSTOM_FOREST), Biome.builder().from(defaultBiome2)
                 .add(Keys.NATURAL_SPAWNERS, Map.of(EntityCategories.MONSTER.get(), spawner))
-                .key(ResourceKey.of(NAMESPACE, CUSTOM_FOREST)).build();
-        Sponge.server().dataPackManager().save(template2);
-
-        return CommandResult.success();
+                .build());
+        }, RegistryTypes.PLACED_FEATURE);
     }
 
     private CommandResult list(CommandContext ctx, final Parameter.Value<String> filterParam) {
@@ -133,16 +128,6 @@ public final class BiomeTest {
         final Registry<Biome> registry = this.registry();
         registry.streamEntries().filter(e -> invert == e.key().toString().toUpperCase().contains(filter))
                 .forEach(e -> ctx.sendMessage(Identity.nil(), Component.text(" - " + e.key(), NamedTextColor.GRAY)));
-
-        final DataPackManager dpm = Sponge.server().dataPackManager();
-        dpm.find(DataPackTypes.BIOME).forEach((pack, keys) -> {
-            ctx.sendMessage(Identity.nil(), Component.text(pack.name() + ": " + pack.description() , NamedTextColor.DARK_AQUA));
-            keys.forEach(key -> ctx.sendMessage(Identity.nil(), Component.text(" - " + key, NamedTextColor.GRAY)));
-        });
-
-        dpm.load(DataPacks.BIOME, ResourceKey.of(NAMESPACE, CUSTOM_PLAINS)).join().ifPresent(template -> {
-            ctx.sendMessage(Identity.nil(), Component.text("BiomeTemplate loaded from disk is present " + template.key(), NamedTextColor.DARK_AQUA));
-        });
         return CommandResult.success();
     }
 
@@ -157,7 +142,6 @@ public final class BiomeTest {
         return Command.builder()
                 .addChild(Command.builder().addParameter(filter).executor(ctx -> this.list(ctx, filter)).build(), "list")
                 .addChild(Command.builder().addParameter(biomeParam).executor(ctx -> this.info(ctx, biomeParam)).build(), "info")
-                .addChild(Command.builder().executor(this::register).build(), "register")
                 .build();
     }
 }

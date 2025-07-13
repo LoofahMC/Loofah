@@ -79,7 +79,7 @@ public class ProjectileTest implements LoadableModule {
     private void registerCommand(final RegisterCommandEvent<Command.Parameterized> event) {
         final Parameter.Value<EntityType<@NonNull ?>> entityTypeParameter =
                 Parameter.registryElement(
-                        new TypeToken<EntityType<? extends Entity>>() {},
+                        new TypeToken<EntityType<?>>() {},
                         (ctx) -> Sponge.game(),
                         RegistryTypes.ENTITY_TYPE,
                         "minecraft",
@@ -208,7 +208,7 @@ public class ProjectileTest implements LoadableModule {
         }
 
         @Listener
-        private void onClickBlock(final InteractBlockEvent.Secondary event, @First final ServerPlayer player) {
+        private void onClickBlock(final InteractBlockEvent.Secondary.Pre event, @First final ServerPlayer player) {
             final Vector3d interactionPoint = event.interactionPoint();
             final ServerWorld world = player.world();
             final EntityType<? extends Projectile> nextType = this.projectileTypes.poll();

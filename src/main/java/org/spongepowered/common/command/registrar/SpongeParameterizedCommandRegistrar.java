@@ -39,6 +39,7 @@ import org.spongepowered.api.command.manager.CommandFailedRegistrationException;
 import org.spongepowered.api.command.manager.CommandManager;
 import org.spongepowered.api.command.manager.CommandMapping;
 import org.spongepowered.api.command.registrar.CommandRegistrarType;
+import org.spongepowered.api.registry.RegistryHolder;
 import org.spongepowered.common.command.SpongeCommandCompletion;
 import org.spongepowered.common.command.SpongeParameterizedCommand;
 import org.spongepowered.common.command.brigadier.dispatcher.SpongeCommandDispatcher;
@@ -66,10 +67,12 @@ public final class SpongeParameterizedCommandRegistrar implements BrigadierBased
     );
 
     private final CommandManager.Mutable commandManager;
+    private final RegistryHolder registryHolder;
     private final Map<CommandMapping, Command.Parameterized> commandMap = new HashMap<>();
 
-    public SpongeParameterizedCommandRegistrar(final CommandManager.Mutable commandManager) {
+    public SpongeParameterizedCommandRegistrar(final CommandManager.Mutable commandManager, final RegistryHolder registryHolder) {
         this.commandManager = commandManager;
+        this.registryHolder = registryHolder;
     }
 
     @Override
@@ -102,8 +105,8 @@ public final class SpongeParameterizedCommandRegistrar implements BrigadierBased
                 null
         );
 
-        this.createNode(mapping, command).forEach(this.commandManager().getDispatcher()::register);
-        ((SpongeParameterizedCommand) command).setCommandManager(this.commandManager());
+        this.createNode(this.registryHolder, mapping, command).forEach(this.commandManager().getDispatcher()::register);
+        ((SpongeParameterizedCommand) command).setCommandManager(this.commandManager(), this.registryHolder);
         this.commandMap.put(mapping, command);
         return mapping;
     }
@@ -194,11 +197,11 @@ public final class SpongeParameterizedCommandRegistrar implements BrigadierBased
         return command + " " + argument;
     }
 
-    private Collection<LiteralCommandNode<CommandSourceStack>> createNode(final CommandMapping mapping, final Command.Parameterized command) {
+    private Collection<LiteralCommandNode<CommandSourceStack>> createNode(final RegistryHolder registryHolder, final CommandMapping mapping, final Command.Parameterized command) {
         if (!(command instanceof SpongeParameterizedCommand)) {
             throw new IllegalArgumentException("Command must be a SpongeParameterizedCommand!");
         }
-        return ((SpongeParameterizedCommand) command).buildWithAliases(mapping.allAliases());
+        return ((SpongeParameterizedCommand) command).buildWithAliases(registryHolder, mapping.allAliases());
     }
 
 }

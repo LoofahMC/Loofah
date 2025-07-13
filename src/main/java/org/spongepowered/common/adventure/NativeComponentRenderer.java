@@ -24,6 +24,7 @@
  */
 package org.spongepowered.common.adventure;
 
+import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.renderer.TranslatableComponentRenderer;
 import net.kyori.adventure.translation.GlobalTranslator;
 import net.kyori.adventure.translation.TranslationRegistry;
@@ -57,9 +58,9 @@ public abstract class NativeComponentRenderer<C> {
         }
     };
 
-    public static @NonNull Component apply(final Component input, final Locale locale) {
+    public static @NonNull Component apply(final Component input, final Locale locale, final @Nullable Audience audience) {
         if (input instanceof AdventureTextComponent) {
-            return ((AdventureTextComponent) input).rendered(locale);
+            return ((AdventureTextComponent) input).rendered(locale, audience);
         } else {
             return NativeComponentRenderer.get().render(input.copy(), locale);
         }

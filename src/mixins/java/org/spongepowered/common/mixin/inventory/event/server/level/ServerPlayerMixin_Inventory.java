@@ -85,7 +85,6 @@ import org.spongepowered.common.inventory.lens.slots.SlotLens;
 import org.spongepowered.common.item.util.ItemStackUtil;
 import org.spongepowered.common.mixin.inventory.event.entity.player.PlayerMixin_Inventory;
 
-import java.util.Collections;
 import java.util.Map;
 
 @Mixin(ServerPlayer.class)
@@ -259,9 +258,9 @@ public abstract class ServerPlayerMixin_Inventory extends PlayerMixin_Inventory 
         final PhaseTracker tracker = PhaseTracker.getWorldInstance(this.shadow$serverLevel());
         final ItemStackSnapshot resultingCursor = ItemStackUtil.snapshotOf(this.containerMenu.getCarried());
         final Transaction<ItemStackSnapshot> cursorTransaction = new Transaction<>(resultingCursor, resultingCursor);
-        final InteractContainerEvent.Close event = SpongeEventFactory.createInteractContainerEventClose(
+        final InteractContainerEvent.Close event = SpongeEventFactory.createInteractContainerEventClosePre(
             tracker.currentCause(), (org.spongepowered.api.item.inventory.Container) this.containerMenu,
-            cursorTransaction, (Inventory) this.containerMenu, Collections.emptyList());
+            cursorTransaction);
         SpongeCommon.post(event);
         PacketPhaseUtil.handleCursorRestore((ServerPlayer) (Object) this, event.cursorTransaction(), event.isCancelled());
         if (event.isCancelled() && !(this.containerMenu instanceof InventoryMenu)) {
@@ -294,7 +293,7 @@ public abstract class ServerPlayerMixin_Inventory extends PlayerMixin_Inventory 
         final PhaseTracker tracker = PhaseTracker.getWorldInstance(this.shadow$serverLevel());
         final PhaseContext<@NonNull ?> context = tracker.getPhaseContext();
         final TransactionalCaptureSupplier transactor = context.getTransactor();
-        try (final EffectTransactor ignored = transactor.logPlayerInventoryChangeWithEffect(player, PlayerInventoryTransaction.EventCreator.STANDARD)) {
+        try (final EffectTransactor ignored = transactor.logCloseInventory(context, player)) {
             original.call(instance, player);
             instance.broadcastChanges();
             TrackingUtil.processBlockCaptures(context);

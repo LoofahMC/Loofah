@@ -69,7 +69,7 @@ public abstract class AbstractFurnaceBlockEntityMixin_Forge implements AbstractF
 
     // @formatter:off
     @Shadow protected NonNullList<ItemStack> items;
-    @Shadow int cookingProgress;
+    @Shadow int cookingTimer;
     @Shadow private boolean shadow$canBurn(RegistryAccess registryAccess, @Nullable RecipeHolder<?> recipe, SingleRecipeInput input, NonNullList<ItemStack> slots, int maxStackSize) {
         throw new UnsupportedOperationException("Shadowed canBurn");
     }
@@ -96,13 +96,13 @@ public abstract class AbstractFurnaceBlockEntityMixin_Forge implements AbstractF
         final ItemStackSnapshot fuel = ItemStackUtil.snapshotOf(slots.get(1));
 
         final Cause cause = PhaseTracker.getInstance().currentCause();
-        if (entity.cookingProgress == 0) { // Start
+        if (entity.cookingTimer == 0) { // Start
             final CookingEvent.Start event = SpongeEventFactory.createCookingEventStart(cause, (FurnaceBlockEntity) entityIn, Optional.of(fuel),
                 Optional.of((CookingRecipe) recipe.value()), Optional.of((ResourceKey) (Object) recipe.id().location()));
             SpongeCommon.post(event);
             return !event.isCancelled();
         } else { // Tick up
-            final ItemStackSnapshot cooking = ItemStackUtil.snapshotOf(entity.items.get(0));
+            final ItemStackSnapshot cooking = ItemStackUtil.snapshotOf(entity.items.getFirst());
             final CookingEvent.Tick event = SpongeEventFactory.createCookingEventTick(cause, (FurnaceBlockEntity) entityIn, cooking, Optional.of(fuel),
                 Optional.of((CookingRecipe) recipe.value()), Optional.of((ResourceKey) (Object) recipe.id().location()));
             SpongeCommon.post(event);
@@ -124,7 +124,7 @@ public abstract class AbstractFurnaceBlockEntityMixin_Forge implements AbstractF
                 recipe.map(r -> (CookingRecipe) r.value()), recipe.map(r -> (ResourceKey) (Object) r.id().location()));
         SpongeCommon.post(event);
         if (event.isCancelled()) {
-            return entity.cookingProgress; // dont tick down
+            return entity.cookingTimer; // dont tick down
         }
 
         return clampedCookTime;

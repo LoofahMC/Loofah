@@ -24,8 +24,6 @@
  */
 package org.spongepowered.common.registry.loader;
 
-import net.minecraft.core.Registry;
-import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.levelgen.flat.FlatLevelGeneratorPreset;
 import net.minecraft.world.level.material.MapColor;
@@ -67,8 +65,8 @@ import org.spongepowered.api.event.cause.entity.MovementType;
 import org.spongepowered.api.event.cause.entity.MovementTypes;
 import org.spongepowered.api.event.cause.entity.SpawnType;
 import org.spongepowered.api.event.cause.entity.SpawnTypes;
-import org.spongepowered.api.event.cause.entity.damage.DamageModifierType;
-import org.spongepowered.api.event.cause.entity.damage.DamageModifierTypes;
+import org.spongepowered.api.event.cause.entity.damage.DamageStepType;
+import org.spongepowered.api.event.cause.entity.damage.DamageStepTypes;
 import org.spongepowered.api.item.inventory.ItemStackSnapshot;
 import org.spongepowered.api.item.inventory.menu.ClickType;
 import org.spongepowered.api.item.inventory.menu.ClickTypes;
@@ -80,7 +78,10 @@ import org.spongepowered.api.map.color.MapShade;
 import org.spongepowered.api.map.color.MapShades;
 import org.spongepowered.api.map.decoration.orientation.MapDecorationOrientation;
 import org.spongepowered.api.map.decoration.orientation.MapDecorationOrientations;
+import org.spongepowered.api.registry.Registry;
+import org.spongepowered.api.registry.RegistryHolder;
 import org.spongepowered.api.registry.RegistryKey;
+import org.spongepowered.api.registry.RegistryType;
 import org.spongepowered.api.registry.RegistryTypes;
 import org.spongepowered.api.service.ban.Ban;
 import org.spongepowered.api.service.ban.BanType;
@@ -125,7 +126,7 @@ import org.spongepowered.common.event.cause.entity.SpongeDismountType;
 import org.spongepowered.common.event.cause.entity.SpongeMovementType;
 import org.spongepowered.common.event.cause.entity.SpongeSpawnType;
 import org.spongepowered.common.event.cause.entity.SpongeSpawnTypes;
-import org.spongepowered.common.event.cause.entity.damage.SpongeDamageModifierType;
+import org.spongepowered.common.event.cause.entity.damage.SpongeDamageStepType;
 import org.spongepowered.common.inventory.menu.handler.SpongeClickType;
 import org.spongepowered.common.inventory.query.SpongeOneParamQueryType;
 import org.spongepowered.common.inventory.query.SpongeQueryTypes;
@@ -218,25 +219,26 @@ public final class SpongeRegistryLoader {
         )));
     }
 
-    public static RegistryLoader<DamageModifierType> damageModifierType() {
-        return RegistryLoader.of(l -> l.mapping(SpongeDamageModifierType::new, m -> m.add(
-                DamageModifierTypes.ABSORPTION,
-                DamageModifierTypes.ARMOR,
-                DamageModifierTypes.ARMOR_ENCHANTMENT,
-                DamageModifierTypes.ATTACK_COOLDOWN,
-                DamageModifierTypes.CRITICAL_HIT,
-                DamageModifierTypes.DEFENSIVE_POTION_EFFECT,
-                DamageModifierTypes.DIFFICULTY,
-                DamageModifierTypes.HARD_HAT,
-                DamageModifierTypes.MAGIC,
-                DamageModifierTypes.NEGATIVE_POTION_EFFECT,
-                DamageModifierTypes.OFFENSIVE_POTION_EFFECT,
-                DamageModifierTypes.SHIELD,
-                DamageModifierTypes.SWEEPING,
-                DamageModifierTypes.WEAPON_ENCHANTMENT,
-                DamageModifierTypes.WEAPON_BONUS,
-                DamageModifierTypes.ATTACK_STRENGTH,
-                DamageModifierTypes.FREEZING_BONUS
+    public static RegistryLoader<DamageStepType> damageStepType() {
+        return RegistryLoader.of(l -> l.mapping(SpongeDamageStepType::new, m -> m.add(
+                DamageStepTypes.ABSORPTION,
+                DamageStepTypes.ARMOR,
+                DamageStepTypes.ARMOR_ENCHANTMENT,
+                DamageStepTypes.BASE_COOLDOWN,
+                DamageStepTypes.CRITICAL_HIT,
+                DamageStepTypes.DEFENSIVE_POTION_EFFECT,
+                DamageStepTypes.ENCHANTMENT_COOLDOWN,
+                DamageStepTypes.END,
+                DamageStepTypes.FREEZING_BONUS,
+                DamageStepTypes.HARD_HAT,
+                DamageStepTypes.MAGIC,
+                DamageStepTypes.NEGATIVE_POTION_EFFECT,
+                DamageStepTypes.OFFENSIVE_POTION_EFFECT,
+                DamageStepTypes.SHIELD,
+                DamageStepTypes.START,
+                DamageStepTypes.SWEEPING,
+                DamageStepTypes.WEAPON_BONUS,
+                DamageStepTypes.WEAPON_ENCHANTMENT
         )));
     }
 
@@ -383,6 +385,7 @@ public final class SpongeRegistryLoader {
             l.add(ParticleOptions.TO_COLOR, k -> new SpongeParticleOption<>(Color.class));
             l.add(ParticleOptions.TRAVEL_TIME, k -> new SpongeParticleOption<>(Ticks.class));
             l.add(ParticleOptions.VELOCITY, k -> new SpongeParticleOption<>(Vector3d.class));
+            l.add(ParticleOptions.TARGET, k -> new SpongeParticleOption<>(Vector3d.class));
         });
     }
 
@@ -408,6 +411,7 @@ public final class SpongeRegistryLoader {
         return RegistryLoader.of(l -> {
             l.add(ResolveOperations.CONTEXTUAL_COMPONENTS, SpongeResolveOperation::newContextualComponents);
             l.add(ResolveOperations.CUSTOM_TRANSLATIONS, SpongeResolveOperation::newCustomTranslations);
+            l.add(ResolveOperations.VIRTUAL_COMPONENTS, SpongeResolveOperation::newVirtualComponents);
         });
     }
 
@@ -580,13 +584,13 @@ public final class SpongeRegistryLoader {
         });
     }
 
-    public static RegistryLoader<FlatGeneratorConfig> flatGeneratorConfig(RegistryAccess registryAccess) {
-        final Registry<FlatLevelGeneratorPreset> registry = registryAccess.lookupOrThrow(Registries.FLAT_LEVEL_GENERATOR_PRESET);
-        return RegistryLoader.of(l -> {
-            for (final var entry : registry.entrySet()) {
-                l.add(RegistryKey.of(RegistryTypes.FLAT_GENERATOR_CONFIG, (ResourceKey) (Object) entry.getKey().location()), () -> (FlatGeneratorConfig) entry.getValue().settings());
-            }
-        });
+    public static RegistryLoader<FlatGeneratorConfig> flatGeneratorConfig(RegistryHolder registryAccess) {
+        final RegistryType<FlatLevelGeneratorPreset> registryType = RegistryType.of(
+            (ResourceKey) (Object) Registries.FLAT_LEVEL_GENERATOR_PRESET.registry(), (ResourceKey) (Object) Registries.FLAT_LEVEL_GENERATOR_PRESET.location());
+        final Registry<FlatLevelGeneratorPreset> registry = registryAccess.registry(registryType);
+        return RegistryLoader.of(l ->
+            registry.streamEntries().forEach(e ->
+                l.add(RegistryKey.of(RegistryTypes.FLAT_GENERATOR_CONFIG, e.key()), () -> (FlatGeneratorConfig) e.value().settings())));
     }
 
     // @formatter:on

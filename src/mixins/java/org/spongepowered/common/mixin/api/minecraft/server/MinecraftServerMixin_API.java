@@ -26,7 +26,6 @@ package org.spongepowered.common.mixin.api.minecraft.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.llamalad7.mixinextras.sugar.Local;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.audience.MessageType;
 import net.kyori.adventure.identity.Identity;
@@ -38,7 +37,6 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.ServerScoreboard;
-import net.minecraft.server.WorldStem;
 import net.minecraft.server.dedicated.DedicatedServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.packs.repository.PackRepository;
@@ -155,19 +153,17 @@ public abstract class MinecraftServerMixin_API implements SpongeServer, SpongeRe
     private ServerScoreboard api$scoreboard;
     private SpongeGameProfileManager api$profileManager;
     private MapStorage api$mapStorage;
-    private RegistryHolderLogic api$registryHolder;
     private SpongeUserManager api$userManager;
     private SpongeDataPackManager api$dataPackManager;
     private final BlockDestructionIdCache api$blockDestructionIdCache = new BlockDestructionIdCache(0, AtomicInteger::decrementAndGet);
 
     @Inject(method = "<init>", at = @At("TAIL"))
-    public void api$initializeSpongeFieldsfinal(final CallbackInfo ci, @Local(argsOnly = true) final WorldStem levelStem) {
+    public void api$initializeSpongeFieldsfinal(final CallbackInfo ci) {
         this.api$scheduler = new ServerScheduler();
         this.api$worldManager = new SpongeWorldManager((MinecraftServer) (Object) this);
         this.api$playerDataHandler = new SpongePlayerDataManager(this);
         this.api$teleportHelper = new SpongeTeleportHelper();
         this.api$mapStorage = new SpongeMapStorage();
-        this.api$registryHolder = new RegistryHolderLogic(levelStem.registries().compositeAccess());
         this.api$userManager = new SpongeUserManager((MinecraftServer) (Object) this);
         this.api$dataPackManager = new SpongeDataPackManager((MinecraftServer) (Object) this, this.storageSource.getLevelPath(LevelResource.DATAPACK_DIR));
     }
@@ -502,6 +498,6 @@ public abstract class MinecraftServerMixin_API implements SpongeServer, SpongeRe
 
     @Override
     public RegistryHolderLogic registryHolder() {
-        return this.api$registryHolder;
+        return ((MinecraftServerBridge) this).bridge$registryHolder();
     }
 }

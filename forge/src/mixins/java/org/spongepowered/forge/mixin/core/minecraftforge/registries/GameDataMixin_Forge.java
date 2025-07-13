@@ -35,6 +35,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.common.entity.SpongeEntityTypes;
+import org.spongepowered.common.launch.Launch;
 
 @Mixin(GameData.class)
 public class GameDataMixin_Forge {
@@ -44,5 +45,15 @@ public class GameDataMixin_Forge {
         if (vanillaRegistry != null && Registries.ENTITY_TYPE.equals(vanillaRegistry.key())) {
             SpongeEntityTypes.register((Registry<EntityType<?>>) vanillaRegistry);
         }
+    }
+
+    @Inject(method = "postRegisterEvents", at = @At("HEAD"))
+    private static void forge$onRegisterEvents(final CallbackInfo ci) {
+        Launch.instance().lifecycle().establishGlobalRegistries();
+    }
+
+    @Inject(method = "freezeData", at = @At("TAIL"))
+    private static void forge$onFreezeData(final CallbackInfo ci) {
+        Launch.instance().lifecycle().endEstablishGlobalRegistries();
     }
 }

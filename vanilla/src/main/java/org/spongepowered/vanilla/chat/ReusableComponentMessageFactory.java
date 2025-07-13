@@ -145,7 +145,7 @@ public class ReusableComponentMessageFactory implements MessageFactory2 {
                     ComponentMessage.RENDERER.render(((ComponentLike) param).asComponent(), Locale.getDefault())
                 );
             } else if (param instanceof net.minecraft.network.chat.Component) {
-                return NativeComponentRenderer.apply((Component) param, Locale.getDefault()).getString();
+                return NativeComponentRenderer.apply((Component) param, Locale.getDefault(), null).getString();
             }
             return super.getFormattedMessage();
         }
@@ -160,7 +160,7 @@ public class ReusableComponentMessageFactory implements MessageFactory2 {
                     buffer::append
                 );
             } else if (param instanceof net.minecraft.network.chat.Component) {
-                buffer.append(NativeComponentRenderer.apply((Component) param, Locale.getDefault()).getString());
+                buffer.append(NativeComponentRenderer.apply((Component) param, Locale.getDefault(), null).getString());
             } else {
                 super.formatTo(buffer);
             }

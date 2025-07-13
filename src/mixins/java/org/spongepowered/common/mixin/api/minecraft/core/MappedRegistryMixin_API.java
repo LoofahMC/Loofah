@@ -30,7 +30,6 @@ import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.RegistrationInfo;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.spongepowered.api.ResourceKey;
 import org.spongepowered.api.registry.Registry;
 import org.spongepowered.api.registry.RegistryEntry;
@@ -44,11 +43,10 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.common.bridge.core.RegistryBridge;
 import org.spongepowered.common.bridge.core.WritableRegistryBridge;
+import org.spongepowered.common.bridge.tags.TagBridge;
 
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Mixin(MappedRegistry.class)
@@ -58,14 +56,9 @@ public abstract class MappedRegistryMixin_API<T> implements Registry<T> {
     @Shadow public abstract Holder.Reference<T> shadow$register(final net.minecraft.resources.ResourceKey<T> $$0, final T $$1, final RegistrationInfo $$2);
 
     @Shadow public abstract net.minecraft.resources.ResourceKey<? extends net.minecraft.core.Registry<T>> shadow$key();
-    @Shadow @Nullable public abstract T shadow$getValue(@Nullable ResourceLocation var1);
 
     private ResourceLocation impl$getKey(final T value) {
         return ((net.minecraft.core.Registry) this).getKey(value);
-    }
-
-    private Optional<T> impl$getOptional(@Nullable ResourceLocation param0) {
-        return ((net.minecraft.core.Registry) this).getOptional(param0);
     }
 
     private Optional<HolderSet.Named<T>> impl$getTag(TagKey<T> var1) {
@@ -107,16 +100,18 @@ public abstract class MappedRegistryMixin_API<T> implements Registry<T> {
         return ((RegistryBridge<V>) this).bridge$get(Objects.requireNonNull(key, "key"));
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public <V extends T> Optional<V> findValue(final ResourceKey key) {
-        return (Optional<V>) this.impl$getOptional((ResourceLocation) (Object) Objects.requireNonNull(key, "key"));
+        return ((RegistryBridge<V>) this).bridge$get(Objects.requireNonNull(key, "key")).map(RegistryEntry::value);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public <V extends T> V value(final ResourceKey key) {
-        final V value = (V) this.shadow$getValue((ResourceLocation) (Object) Objects.requireNonNull(key, "key"));
+        final RegistryEntry<V> value = ((RegistryBridge<V>) this).bridge$getEntry(Objects.requireNonNull(key, "key"));
         if (value != null) {
-            return value;
+            return value.value();
         }
 
         throw new ValueNotFoundException(String.format("No value was found for key '%s'!", key));
@@ -124,11 +119,10 @@ public abstract class MappedRegistryMixin_API<T> implements Registry<T> {
 
     @Override
     @SuppressWarnings("unchecked")
-    public <V extends T> Set<V> taggedValues(final Tag<T> tag) {
-        return this.impl$getTag((TagKey<T>) (Object) tag).stream()
+    public <V extends T> Stream<V> taggedValues(final Tag<T> tag) {
+        return this.impl$getTag(((TagBridge<T>) tag).bridge$asVanillaTag()).stream()
                 .flatMap(HolderSet.ListBacked::stream)
-                .map(h -> (V) h.value())
-                .collect(Collectors.toSet());
+                .map(h -> (V) h.value());
     }
 
     @Override

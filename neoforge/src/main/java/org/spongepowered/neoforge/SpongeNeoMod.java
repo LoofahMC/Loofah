@@ -40,12 +40,12 @@ import org.apache.logging.log4j.Logger;
 import org.spongepowered.api.Client;
 import org.spongepowered.api.Server;
 import org.spongepowered.api.Sponge;
-import org.spongepowered.common.config.core.ConfigHandle;
 import org.spongepowered.common.entity.SpongeEntityTypes;
 import org.spongepowered.common.entity.living.human.HumanEntity;
 import org.spongepowered.common.hooks.PlatformHooks;
 import org.spongepowered.common.launch.Launch;
 import org.spongepowered.common.launch.Lifecycle;
+import org.spongepowered.common.launch.config.core.ConfigHandle;
 import org.spongepowered.common.network.channel.SpongeChannelManager;
 import org.spongepowered.common.network.packet.SpongePacketHandler;
 import org.spongepowered.neoforge.hook.NeoChannelHooks;
@@ -93,8 +93,6 @@ public final class SpongeNeoMod {
     private void onClientSetup(final FMLClientSetupEvent event) {
         final Client minecraft = (Client) Minecraft.getInstance();
         final Lifecycle lifecycle = Launch.instance().lifecycle();
-        lifecycle.establishDataProviders();
-        lifecycle.callRegisterDataEvent();
         lifecycle.establishClientRegistries(minecraft);
         lifecycle.callStartingEngineEvent(minecraft);
     }
@@ -109,7 +107,6 @@ public final class SpongeNeoMod {
 
         lifecycle.establishServerFeatures();
 
-        lifecycle.establishServerRegistries((Server) event.getServer());
         lifecycle.callStartingEngineEvent((Server) event.getServer());
     }
 

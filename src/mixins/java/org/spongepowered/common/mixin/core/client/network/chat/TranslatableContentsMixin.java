@@ -65,7 +65,7 @@ public abstract class TranslatableContentsMixin {
 
         // Only do a deep copy if actually necessary
         if (GlobalTranslator.translator().translate(this.key, actualLocale) != null) {
-            this.impl$translated = NativeComponentRenderer.apply(toTranslate, actualLocale);
+            this.impl$translated = NativeComponentRenderer.apply(toTranslate, actualLocale, null);
         } else {
             this.impl$translated = toTranslate;
         }

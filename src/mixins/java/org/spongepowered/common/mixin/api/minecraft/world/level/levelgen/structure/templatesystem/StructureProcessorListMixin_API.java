@@ -26,13 +26,18 @@ package org.spongepowered.common.mixin.api.minecraft.world.level.levelgen.struct
 
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureProcessor;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureProcessorList;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureProcessorType;
+import org.spongepowered.api.data.persistence.DataContainer;
+import org.spongepowered.api.registry.RegistryHolder;
 import org.spongepowered.api.world.generation.structure.jigsaw.Processor;
 import org.spongepowered.api.world.generation.structure.jigsaw.ProcessorList;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.common.util.DataPackUtil;
 
 import java.util.List;
+import java.util.Optional;
 
 @Mixin(StructureProcessorList.class)
 public abstract class StructureProcessorListMixin_API implements ProcessorList {
@@ -44,5 +49,10 @@ public abstract class StructureProcessorListMixin_API implements ProcessorList {
     @Override
     public List<Processor> processors() {
         return (List) this.list;
+    }
+
+    @Override
+    public Optional<DataContainer> toDataPack(final RegistryHolder registryHolder) {
+        return DataPackUtil.toDataContainer(registryHolder, StructureProcessorType.LIST_OBJECT_CODEC, (StructureProcessorList) (Object) this);
     }
 }
