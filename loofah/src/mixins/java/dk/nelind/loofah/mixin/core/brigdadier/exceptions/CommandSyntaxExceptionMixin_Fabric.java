@@ -32,7 +32,11 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.common.adventure.SpongeAdventure;
 
-/** Copied from {@link org.spongepowered.vanilla.mixin.core.brigadier.exceptions.CommandSyntaxExceptionMixin_Vanilla} */
+/** Copied from {@link org.spongepowered.vanilla.mixin.core.brigadier.exceptions.CommandSyntaxExceptionMixin_Vanilla}
+ * This has been removed from SpongeVanilla because brigadier isn't transformable under it's modlauncher setup
+ * (see <a href="https://github.com/SpongePowered/Sponge/issues/4155">this issue</a>) but we keep it here since brig
+ * <strong>is</strong> transformable under fabric loader
+ */
 @Mixin(CommandSyntaxException.class)
 public abstract class CommandSyntaxExceptionMixin_Fabric implements ComponentMessageThrowable {
     @Shadow public abstract Message getRawMessage();
