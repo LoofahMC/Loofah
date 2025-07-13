@@ -39,10 +39,10 @@ import org.spongepowered.api.Server;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.common.SpongeCommon;
 import org.spongepowered.common.bridge.client.MinecraftBridge;
-import org.spongepowered.common.config.core.ConfigHandle;
 import org.spongepowered.common.hooks.PlatformHooks;
 import org.spongepowered.common.launch.Launch;
 import org.spongepowered.common.launch.Lifecycle;
+import org.spongepowered.common.launch.config.core.ConfigHandle;
 import org.spongepowered.common.network.channel.SpongeChannelManager;
 import org.spongepowered.common.network.packet.SpongePacketHandler;
 
@@ -100,7 +100,6 @@ public class Loofah implements ModInitializer, ClientModInitializer {
 
             lifecycle.establishServerServices();
             lifecycle.establishServerFeatures();
-            lifecycle.establishServerRegistries((Server) server);
             lifecycle.callStartingEngineEvent((Server) server);
 
             Loofah.LOGGER.info("Loofah v{} initialized on Server", Launch.instance().platformPlugin().metadata().version());

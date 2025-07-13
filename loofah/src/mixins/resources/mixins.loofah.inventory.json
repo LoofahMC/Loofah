@@ -4,7 +4,6 @@
   "package": "dk.nelind.loofah.mixin.inventory",
   "priority": 1200,
   "mixins": [
-    "event.world.level.block.entity.HopperBlockEntityMixin_Inventory_Fabric"
   ],
   "overwrites": {
     "conformVisibility": true

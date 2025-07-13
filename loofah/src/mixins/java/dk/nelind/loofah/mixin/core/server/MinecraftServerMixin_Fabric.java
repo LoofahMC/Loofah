@@ -24,10 +24,22 @@
  */
 package dk.nelind.loofah.mixin.core.server;
 
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import dk.nelind.loofah.FabricServer;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.packs.resources.MultiPackResourceManager;
+import org.spongepowered.api.registry.RegistryHolder;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Coerce;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.common.accessor.server.MinecraftServer_ReloadableResourcesAccessor;
+import org.spongepowered.common.bridge.server.MinecraftServerBridge;
+import org.spongepowered.common.registry.SpongeRegistryHolder;
+
+import java.util.Collection;
 
 // Lower the priority to override the server mod name from SpongeCommon
 @Mixin(value = MinecraftServer.class, priority = 1102)
@@ -39,5 +51,16 @@ public abstract class MinecraftServerMixin_Fabric implements FabricServer {
     @Overwrite
     public String getServerModName() {
         return "fabric/loofah";
+    }
+
+    @ModifyExpressionValue(method = "lambda$reloadResources$28", at = @At(value = "NEW", target = "Lnet/minecraft/server/packs/resources/MultiPackResourceManager;"))
+    private MultiPackResourceManager impl$onReloadResources(final MultiPackResourceManager original) {
+        ((MinecraftServerBridge) this).bridge$reloadServerRegistries((RegistryHolder) original);
+        return original;
+    }
+
+    @Inject(method = "lambda$reloadResources$29", at = @At("TAIL"))
+    public void impl$onReloadedResources(final Collection<?> $$0x, final @Coerce MinecraftServer_ReloadableResourcesAccessor $$1x, final CallbackInfo ci) {
+        ((MinecraftServerBridge) this).bridge$reloadedServerRegistries(((SpongeRegistryHolder) $$1x.accessor$resourceManager()).registryHolder());
     }
 }

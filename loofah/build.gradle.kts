@@ -125,6 +125,7 @@ val fabricMixins by sourceSets.register("mixins") {
     spongeImpl.addDependencyToImplementation(accessors, this)
     spongeImpl.addDependencyToImplementation(applaunch, this)
     spongeImpl.addDependencyToImplementation(applaunchConf, this)
+    spongeImpl.addDependencyToImplementation(launch, this)
     spongeImpl.addDependencyToImplementation(fabricAppLaunch, this)
     spongeImpl.addDependencyToImplementation(fabricMain, this)
     spongeImpl.addDependencyToImplementation(fabricAccessors, this)

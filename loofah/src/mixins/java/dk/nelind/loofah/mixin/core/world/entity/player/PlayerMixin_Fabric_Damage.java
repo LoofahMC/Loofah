@@ -24,41 +24,20 @@
  */
 package dk.nelind.loofah.mixin.core.world.entity.player;
 
+import dk.nelind.loofah.mixin.core.world.entity.LivingEntityMixin_Fabric_Damage;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Constant;
-import org.spongepowered.asm.mixin.injection.ModifyConstant;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.Slice;
-import org.spongepowered.common.util.DamageEventUtil;
 
-/** Copied from {@link org.spongepowered.vanilla.mixin.core.world.entity.player.PlayerMixin_Vanilla_Attack_Impl} */
 @Mixin(Player.class)
-public class PlayerMixin_Fabric_Attack_Impl {
-    private DamageEventUtil.Attack<Player> attackImpl$attack;
+public abstract class PlayerMixin_Fabric_Damage extends LivingEntityMixin_Fabric_Damage {
 
-    /**
-     * Captures the crit multiplier as a function
-     */
-    @ModifyConstant(
-        method = "attack",
-        constant = @Constant(floatValue = 1.5F),
-        slice = @Slice(
-            from = @At(
-                value = "INVOKE",
-                target = "Lnet/minecraft/world/entity/player/Player;isSprinting()Z",
-                ordinal = 1
-            ),
-            to = @At(
-                value = "INVOKE",
-                target = "Lnet/minecraft/world/entity/player/Player;getKnownMovement()Lnet/minecraft/world/phys/Vec3;"
-            )
-        )
-    )
-    public float attackImpl$critHook(final float constant) {
-        // if (isCritical) damage *= 1.5F;
-        final var bonusDamageFunc = DamageEventUtil.provideCriticalAttackFunction(this.attackImpl$attack.sourceEntity(), constant);
-        this.attackImpl$attack.functions().add(bonusDamageFunc);
-        return constant;
+    @ModifyVariable(method = "actuallyHurt", at = @At("LOAD"), argsOnly = true, slice = @Slice(
+        from = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Player;awardStat(Lnet/minecraft/resources/ResourceLocation;I)V"),
+        to = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Player;causeFoodExhaustion(F)V")))
+    private float damage$firePostEvent_Player(final float damage) {
+        return this.damage$firePostEvent(damage);
     }
 }
