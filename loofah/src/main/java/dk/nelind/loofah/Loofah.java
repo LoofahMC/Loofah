@@ -24,6 +24,7 @@
  */
 package dk.nelind.loofah;
 
+import dk.nelind.loofah.compat.FabricPermissionApiCompat;
 import dk.nelind.loofah.hooks.FabricChannelHooks;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
@@ -66,6 +67,8 @@ public class Loofah implements ModInitializer, ClientModInitializer {
         SpongePacketHandler.init((SpongeChannelManager) Sponge.channelManager());
         this.registerLifecycleEvents();
         PlatformHooks.INSTANCE.setChannelHooks(new FabricChannelHooks());
+
+        FabricPermissionApiCompat.registerEventHandlers();
     }
 
     @Override

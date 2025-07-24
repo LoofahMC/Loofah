@@ -209,6 +209,7 @@ dependencies {
     "modMixinsImplementation"(modImplementation(fabricApi.module("fabric-registry-sync-v0", fabricApiVersion))!!)
 
     include(fabricLibrariesConfig(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-fabric:0.2.0")!!)!!)
+    include(modImplementation("me.lucko:fabric-permissions-api:0.3.3")!!)
 
     // API dependencies
     fabricBootstrapLibrariesConfig(apiLibs.pluginSpi) {
